@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Library CatalogNumber="Image" Family="Logix" LibraryType="DesignPattern" CoreType="(SPA) Solutions Project Accelerator 1.0" Category="Other" Description="HMI Image" ContentType="Task" Class="Standard" UpstreamKeys="" DownstreamKeys="" Owner="Rockwell" LibraryID="F9366DE1-305F-4DCC-BB9E-58C28C019F23" MajorRev="1" MinorRev="8" Status="Published" Version="2.0.0">
+  <Icon><![CDATA[]]></Icon>
+  <RevHistory Id="RevHistoryF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+    <Rev Name="1,0" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 10:26:00 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="HMI Image" Owner="Rockwell" LibraryID="B6104E77-F2F6-4149-B1D7-01C33BBC3348" MajorRev="1" MinorRev="0" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,1" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 10:35:49 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="HMI Image" Owner="Rockwell" LibraryID="BD1AC34C-0C7B-4688-B1B8-447702DF350E" MajorRev="1" MinorRev="1" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,2" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 10:41:38 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="HMI Image" Owner="Rockwell" LibraryID="C457C47B-6A5A-4BD2-9178-180E68584B1F" MajorRev="1" MinorRev="2" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,3" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 10:44:40 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="HMI Image" Owner="Rockwell" LibraryID="2006AE0D-E88A-47CB-BB8A-91CB7292274B" MajorRev="1" MinorRev="3" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,4" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 10:46:45 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="HMI Image" Owner="Rockwell" LibraryID="A3B20F65-9BEF-4143-A106-D446E7C64E1B" MajorRev="1" MinorRev="4" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,5" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 10:48:23 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="HMI Image" Owner="Rockwell" LibraryID="3E46FEBC-E672-41DB-BB16-59EEE65F3B27" MajorRev="1" MinorRev="5" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,6" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 21:11:30 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Other" Description="HMI Image" Owner="Rockwell" LibraryID="B0EAABF5-8847-4D5D-8F20-1ED6E65D004C" MajorRev="1" MinorRev="6" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,7" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 21:19:44 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="DesignPattern" CoreType="(RA-LIB) Process 5" Category="Other" Description="HMI Image" Owner="Rockwell" LibraryID="616BDE0C-143F-494E-B0C6-E9B8FF30392E" MajorRev="1" MinorRev="7" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,8" ModifiedBy="RA-INT\IMabote" ModifiedDate="Thu Jun 05 12:57:16 2025">
+      <Desc><![CDATA[Added a SPA ID reference]]></Desc>
+      <Header CatalogNumber="Image" Family="Logix" LibraryType="DesignPattern" CoreType="(RA-LIB) Process 5" Category="Other" Description="HMI Image" Owner="Rockwell" LibraryID="F9366DE1-305F-4DCC-BB9E-58C28C019F23" MajorRev="1" MinorRev="8" Version="2.0.0" />
+    </Rev>
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+        <Reference URI="#RevHistoryF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+          <DigestValue>rfSYShlgvBHscFrIZ3x6kN5tfx3qE5rQ8InAQ/EBLYE=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>C7bBxU1V5zy/u8XncA8s3wI3g1410pWKgu/u6s639UDGKWM4oC7yV+SNpFlNRTX9pA5ZJY83KKGfB+cd4mBhmb0B2rgPAbNo3cg9pV16ty4unoVqMbpFjPlpTMVRUDs+nNHYN11HdKcaf97Ta4UvqiS9ZwGtUqCZKxHefG3yjdA=</SignatureValue>
+    </Signature>
+  </RevHistory>
+  <Help><![CDATA[]]></Help>
+  <DefinitionData Id="DefinitionDataF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+    <Pars>
+      <Obj Name="ObjectName" NameFormat="Image" DescFormat="">
+        <Par Name="X1" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="Y1" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="X2" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="Y2" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="ImageName" DVal="" DType="String" RType="Immediate" Group="" ParH="" ROnly="false" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="SEAssocDisplay" DVal="" DType="String" RType="Reference" Group="HMI Configuration" Vis="True" Filter="Library.LibraryType='HMI' And Library.Category='Display'" ParH="Associated HMI SE Display" ROnly="false" CType="Reference" AInc="false" AIncOffset="1" Pad="false" CLXDep="false" AADDep="false" />
+        <Par Name="MEAssocDisplay" DVal="" DType="String" RType="Reference" Group="HMI Configuration" Vis="True" Filter="Library.LibraryType='HMI' And Library.Category='Display'" ParH="Associated HMI ME Display" ROnly="false" CType="Reference" AInc="false" AIncOffset="1" Pad="false" CLXDep="false" AADDep="false" />
+        <Par Name="SolutionsProjectAcceleratorID" DVal="" DType="String" RType="Immediate" Group="" Vis="False" ParH="" ROnly="false" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="false" AADDep="false" />
+      </Obj>
+      <SObjs />
+    </Pars>
+    <Funcs>
+      <Func Name="WidthFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Calculation" ResType="Bool">
+        <Exp><![CDATA[{Abs({X1}-{X2})}]]></Exp>
+      </Func>
+      <Func Name="HeightFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Calculation" ResType="Bool">
+        <Exp><![CDATA[{Abs({Y1}-{Y2})}]]></Exp>
+      </Func>
+      <Func Name="TopFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Integer">
+        <ifcond Value="{Y1}"><![CDATA[{Y1}<{Y2}]]></ifcond>
+        <else Value="{Y2}" />
+      </Func>
+      <Func Name="LeftFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Integer">
+        <ifcond Value="{X1}"><![CDATA[{X1}<{X2}]]></ifcond>
+        <else Value="{X2}" />
+      </Func>
+    </Funcs>
+    <NIBS />
+    <Links />
+    <InterfaceLinks />
+    <Subs />
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+        <Reference URI="#DefinitionDataF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+          <DigestValue>QlKQMfF9R5Wue2psEsXsO74HwlOdlDh+jX4S0Qe7rAA=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>pXM7V3SkhROSpefwmaZFQgSwkXCXFQhmFOPEQrM+s6UkQnL5vZvNlFQaUnB7zYyeWhwpUvETfPcfPPQgPihlZLlpBwLJ4eO9nowinFB4a3b4glwZnyjBCcOeLHIOzKS/LDGvOmtjcjYfhfk5Cah341FBjPUS/Bw3A6wJe4Wcqfg=</SignatureValue>
+    </Signature>
+  </DefinitionData>
+  <AttachmentsSection Id="AttachmentsSectionF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+    <Collections>
+      <Collection Name="Attachments">
+        <Items />
+      </Collection>
+    </Collections>
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+        <Reference URI="#AttachmentsSectionF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+          <DigestValue>lBbsmiV4TGzh3hDTDAuiFWbqcT/Xaf/s6giemR+0zBs=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>KpYAa8RC5DKDenwtTnokKuKH3sKmWtEofRxUcLWmY/09D7sdzmsA9hAheKGRTI/zCr9MK9FHNO8vrm4u6WBo04KFW6gRizgAeqKrhogK/UlyKdLNVGPwsxIpUDtWVMUpEMRiIF83jBHSDda7xl5jGqAeRqRI2lQl1n0d8HtNlas=</SignatureValue>
+    </Signature>
+  </AttachmentsSection>
+  <FTView Id="FTViewF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+    <Collections>
+      <Collection Name="Substitutions">
+        <Items />
+      </Collection>
+      <Collection Name="SE Symbols">
+        <Items>
+          <Item Name="Image">
+            <Attributes>
+              <Attribute Name="Icons">
+                <Value><![CDATA[<image name="{ObjectName}_Image" height="{HeightFinal}" width="{WidthFinal}" left="{LeftFinal}" top="{TopFinal}" visible="true" wallpaper="false" toolTipText="" exposeToVba="notExposed" isReferenceObject="false" imageBackStyle="transparent" imageBackColor="navy" imageColor="white" imageBlink="false" description="" imageName="{ImageName}" />]]></Value>
+              </Attribute>
+              <Attribute Name="UsedSubs">
+                <Value><![CDATA[1,2,3,4,5]]></Value>
+              </Attribute>
+            </Attributes>
+          </Item>
+        </Items>
+      </Collection>
+      <Collection Name="SE VBA Items">
+        <Items />
+      </Collection>
+      <Collection Name="SE Common Code">
+        <Items />
+      </Collection>
+      <Collection Name="SE Symbol Code">
+        <Items />
+      </Collection>
+      <Collection Name="ME Symbols">
+        <Items />
+      </Collection>
+    </Collections>
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+        <Reference URI="#FTViewF9366DE1-305F-4DCC-BB9E-58C28C019F23">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+          <DigestValue>lsCTEs8q9OCg0CEp2rzEWL2OjsXETk9ZG2lm95dBVAY=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>do92dPbxucKcIY5t8De9JLTkxHHK5f+Hc9LP74ep+RENSycU6PwaLL3usRhfkwX7EPIjOLsybkwaL8wgEEUP8VsPE5U79K8D0xQt89OPldpF6TihfrbqLmywFttJteFbkdju5yLyVqoKx3CC6MQ7bGpxwVMRnWBAyz7OQbWEIZ0=</SignatureValue>
+    </Signature>
+  </FTView>
+</Library>

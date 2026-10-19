@@ -1,0 +1,10 @@
+# Documentation toolchain — install with:
+#   pip install -r docs_requirements.txt
+#
+# Kept separate from requirements.txt so the runtime application is not
+# bloated with docs dependencies.
+
+mkdocs>=1.6
+mkdocs-material>=9.5
+# Uncomment when you start auto-generating API pages from docstrings:
+# mkdocstrings[python]>=0.25

@@ -1,0 +1,38 @@
+{
+  "month_year": "2025-11",
+  "last_updated": "2025-11-12T15:43:51.383751",
+  "session_start": "2025-11-12T12:25:41.199303",
+  "monthly_limit": 2000000,
+  "summary": {
+    "total_requests": 2,
+    "total_prompt_tokens": 2007,
+    "total_completion_tokens": 1642,
+    "total_tokens": 3649,
+    "tokens_remaining": 1996351,
+    "usage_percentage": 0.18
+  },
+  "by_model": {
+    "gpt-4.1-mini": {
+      "requests": 2,
+      "prompt_tokens": 2007,
+      "completion_tokens": 1642,
+      "total_tokens": 3649
+    }
+  },
+  "history": [
+    {
+      "timestamp": "2025-11-12T15:43:39.977153",
+      "model": "gpt-4.1-mini",
+      "prompt_tokens": 654,
+      "completion_tokens": 819,
+      "total_tokens": 1473
+    },
+    {
+      "timestamp": "2025-11-12T15:43:51.383751",
+      "model": "gpt-4.1-mini",
+      "prompt_tokens": 1353,
+      "completion_tokens": 823,
+      "total_tokens": 2176
+    }
+  ]
+}

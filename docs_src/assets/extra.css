@@ -1,0 +1,7 @@
+/* The training manual was converted from .docx by pandoc, which leaves many
+   <img> tags glued to the sentence that follows them. Force screenshots onto
+   their own line so the caption text starts below the image. */
+.md-typeset img {
+  display: block;
+  margin: 1em 0;
+}

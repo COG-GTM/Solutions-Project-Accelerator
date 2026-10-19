@@ -1,0 +1,51 @@
+{
+  "_comment": "Declared licenses for dependencies whose published metadata carries no SPDX-resolvable value, so an SBOM generator emits NOASSERTION. Each entry records the evidence it was derived from. Set \"license\": null to keep a package in the manual-review list.",
+  "overrides": {
+    "pdf2docx": {
+      "license": "GPL-3.0-only",
+      "evidence": "Core metadata License field: 'GPL v3'; bundled dist-info/LICENSE is the GNU GPL Version 3 text.",
+      "copyleft_review": true
+    },
+    "paddleocr": {
+      "license": "Apache-2.0",
+      "evidence": "Core metadata License field: 'Apache License 2.0'; bundled LICENSE is the Apache 2.0 text (Copyright 2016 PaddlePaddle Authors)."
+    },
+    "bce-python-sdk": {
+      "license": "Apache-2.0",
+      "evidence": "Core metadata License field: 'Apache License 2.0'. No license file shipped in the wheel."
+    },
+    "visualdl": {
+      "license": "Apache-2.0",
+      "evidence": "Core metadata License field: 'Apache License'. No license file shipped; version confirmed against the PaddlePaddle/VisualDL project, which is Apache-2.0."
+    },
+    "ollama": {
+      "license": "MIT",
+      "evidence": "No License field, but dist-info/licenses/LICENSE is the MIT text (Copyright (c) Ollama)."
+    },
+    "PyTaskbar": {
+      "license": "MIT",
+      "evidence": "License field holds the full MIT text (Copyright (c) 2021 somePythonProgrammer) rather than an identifier."
+    },
+    "pip-system-certs": {
+      "license": "BSD-2-Clause",
+      "evidence": "Core metadata License field is just 'BSD'; bundled LICENSE has two redistribution clauses and no non-endorsement clause (Copyright (c) 2017, Andrew Leech)."
+    },
+    "cssselect2": {
+      "license": "BSD-3-Clause",
+      "evidence": "Applies to the stale 0.2.1 copy on sys.path. Core metadata License field is just 'BSD'; bundled LICENSE carries the non-endorsement third clause."
+    },
+    "imutils": {
+      "license": null,
+      "evidence": "UNRESOLVED. The 0.5.4 wheel ships no License field, no classifier and no license file. Upstream jrosebr1/imutils is MIT on GitHub but that is not asserted by the distributed artifact. Confirm with the author or vendor the license text before shipping."
+    },
+    "pypdfium2": {
+      "license": "BSD-3-Clause AND Apache-2.0",
+      "evidence": "Core metadata License field: 'BSD-3-Clause, Apache-2.0, dependency licenses'. Ships LICENSES/Apache-2.0.txt, LICENSES/BSD-3-Clause.txt and LICENSES/CC-BY-4.0.txt (docs only), plus the bundled PDFium build's own BUILD_LICENSES (pdfium BSD-3-Clause, freetype, libjpeg-turbo, libpng, libtiff, lcms, zlib, icu). All permissive; no copyleft in the set."
+    }
+  },
+  "_annotations_comment": "Packages where the auto-resolved SPDX id is technically correct but misleading. Printed as warnings by license_inventory.py.",
+  "annotations": {
+    "pyinstaller": "Resolves to GPL-2.0-only because the License field holds the full licence text, but upstream is GPL-2.0-or-later WITH a bootloader exception that explicitly permits bundling proprietary applications. The exception is what makes shipping runme.exe acceptable and should be recorded deliberately, not inferred.",
+    "pyinstaller-hooks-contrib": "Same GPL-2.0-or-later with bundling exception as PyInstaller itself; the hooks are build-time only and are not linked into runme.exe."
+  }
+}

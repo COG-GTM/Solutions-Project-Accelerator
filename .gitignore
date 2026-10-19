@@ -1,0 +1,95 @@
+# --- Editor / IDE ---
+**/.idea/
+**/.vscode/
+**/.git/
+**/.ipynb_checkpoints/
+
+# --- Python build / cache ---
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+.coverage
+htmlcov/
+
+# --- MkDocs privacy-plugin download cache (re-fetched on build) ---
+/.cache/
+
+# --- Working / scratch directories ---
+**/temp/
+/temp/
+/output/
+/_export/
+/dist/
+/build/
+**/dist/
+**/build/
+/docs/
+/projects/
+/data/
+/demo/New folder/
+
+# --- Ollama runtime + pulled models (large; re-install locally) ---
+/Ollama/
+
+# --- Vendored third-party sources (pull from upstream, do not commit) ---
+/libs/
+
+# --- Vendored third-party engines (fetch with build_scripts/setup_vendor_deps.ps1) ---
+/Potrace/
+/Poppler/
+/AnyMD/
+/Paddle-OCR/
+
+# --- Model weights / large ML assets ---
+/SAM2.1/
+/ELoFTR/
+/craft_text_detection_models_weight/
+/models/
+/inference/
+/frozen_east_text_detection.pb
+**/*.pt
+**/*.pth
+**/*.ckpt
+**/*.onnx
+**/*.safetensors
+**/*.gguf
+**/*.ggml
+
+# --- Secrets / certificates (do NOT commit) ---
+cert.pem
+*.pem
+*.key
+*.pfx
+**/api_config.enc
+.env
+*.env
+!*.env.example
+
+# --- Virtual environments ---
+.venv/
+venv/
+/plc_bridge/.venv/
+
+# --- Optional enterprise LLM gateway plugin (lives in its own repository) ---
+/genai_bridge/
+
+# --- Reference/data documents (large, distribute separately) ---
+/PlantPAx 5.0 ACM Library/
+SPA Training Manual_2025.docx
+
+# --- Loose scratch files ---
+*.tmp
+*.log
+
+# --- Generated SBOM (regenerate with build_scripts/license_inventory.py header) ---
+/sbom.json
+~$*
+output.txt
+file.txt
+/.pdf
+/.xlsx

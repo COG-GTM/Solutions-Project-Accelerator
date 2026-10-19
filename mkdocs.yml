@@ -1,0 +1,126 @@
+site_name: Solutions Project Accelerator
+site_description: User guide and technical documentation for the Solutions Project Accelerator desktop application.
+site_author: Rockwell Automation
+site_url: ""
+docs_dir: docs_src
+site_dir: build/docs_site
+use_directory_urls: false   # required so file:// URLs work when bundled with the installer
+strict: false
+
+theme:
+  name: material
+  language: en
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    # navigation.instant is deliberately omitted: it fetches pages over XHR,
+    # which is blocked when the bundled site is opened from file://.
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.tabs.link
+
+extra_css:
+  - assets/extra.css
+
+plugins:
+  - search:
+      lang:
+        - en
+      # Also split on camelCase, dots and HTML entities so identifiers like
+      # `gui_main.py` or `LinkedGraphic` are findable by their parts.
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  # Vendors external assets (the iframe-worker shim that `offline` pulls from
+  # unpkg) into the site so the bundled docs need no network access.
+  - privacy
+  # Inlines the search index into the pages so search still works when the
+  # bundled site is opened from file:// (fetch() of search_index.json is
+  # blocked there by CORS).
+  - offline
+  # Uncomment once mkdocstrings[python] is installed and you want auto API pages:
+  # - mkdocstrings:
+  #     handlers:
+  #       python:
+  #         options:
+  #           docstring_style: google
+  #           show_source: false
+  #           merge_init_into_class: true
+  #           show_root_heading: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  # The mermaid custom fence renders ```mermaid blocks as diagrams using the
+  # copy of mermaid.js that the Material theme already bundles, so the offline
+  # docs build needs no network access.
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Prerequisites: prerequisites.md
+  - User guide:
+      - Overview: user-guide/overview.md
+      - How scanning works: user-guide/how-scanning-works.md
+      - Training manual (2026):
+          - Introduction: training-manual/01-introduction.md
+          - Prerequisites: training-manual/02-prerequisites.md
+          - How to create a project: training-manual/03-how-to-create-a-project.md
+          - How to scan control modules: training-manual/04-how-to-scan-control-modules.md
+          - How to extract static graphics: training-manual/05-how-to-extract-static-graphics.md
+          - How to scan HMI display pages and page links: training-manual/06-how-to-scan-hmi-display-pages-and-page-links.md
+          - How to export project data: training-manual/07-how-to-export-project-data.md
+          - How to build HMI display pages: training-manual/08-how-to-build-hmi-display-pages.md
+          - How to link object parameters: training-manual/09-how-to-link-object-parameters.md
+          - How to link subobject parameters: training-manual/10-how-to-link-subobject-parameters.md
+  - Architecture:
+      - Overview: architecture/index.md
+      - Code map: architecture/code-map.md
+      - Processing pipeline: architecture/pipeline.md
+      - Data and state: architecture/data-and-state.md
+      - Integrations: architecture/integrations.md
+      - Build and packaging: architecture/build-and-packaging.md
+  - Release notes: release-notes.md
+  - Security: security.md

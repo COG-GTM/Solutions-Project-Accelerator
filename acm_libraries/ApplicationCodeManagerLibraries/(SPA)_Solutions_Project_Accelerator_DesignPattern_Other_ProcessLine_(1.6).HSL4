@@ -1,0 +1,171 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Library CatalogNumber="ProcessLine" Family="Logix" LibraryType="DesignPattern" CoreType="(SPA) Solutions Project Accelerator 1.0" Category="Other" Description="Process Line" ContentType="Task" Class="Standard" UpstreamKeys="" DownstreamKeys="" Owner="Rockwell" LibraryID="1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3" MajorRev="1" MinorRev="6" Status="Published" Version="2.0.0">
+  <Icon><![CDATA[]]></Icon>
+  <RevHistory Id="RevHistory1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+    <Rev Name="1,0" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 05:30:30 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="ProcessLine" Family="Logix" LibraryType="DesignPattern" CoreType="(RA-LIB) Process 5" Category="Display" Description="" Owner="Rockwell" LibraryID="2809D6FD-C72C-4772-B433-6EA11EC95523" MajorRev="1" MinorRev="0" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,1" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 08:53:57 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="ProcessLine" Family="Logix" LibraryType="DesignPattern" CoreType="(RA-LIB) Process 5" Category="Display" Description="" Owner="Rockwell" LibraryID="8BACC035-CA45-4D71-B78B-6BD708FAD71F" MajorRev="1" MinorRev="1" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,2" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 09:34:18 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="ProcessLine" Family="Logix" LibraryType="DesignPattern" CoreType="(RA-LIB) Process 5" Category="Display" Description="" Owner="Rockwell" LibraryID="39F99AF3-CD3F-4B73-A38E-FF3170C50567" MajorRev="1" MinorRev="2" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,3" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 09:38:32 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="ProcessLine" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="" Owner="Rockwell" LibraryID="B9488F7D-52DB-4D74-90C4-3A1CFA988841" MajorRev="1" MinorRev="3" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,4" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 09:44:24 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="ProcessLine" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Display" Description="" Owner="Rockwell" LibraryID="219DE94B-8893-491C-B9CA-0BD27BC2E7F5" MajorRev="1" MinorRev="4" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,5" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 21:10:38 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="ProcessLine" Family="Logix" LibraryType="HMI" CoreType="(RA-LIB) Process 5" Category="Other" Description="" Owner="Rockwell" LibraryID="7AD4CB90-9A9B-463B-8767-D28823B75D3C" MajorRev="1" MinorRev="5" Version="2.0.0" />
+    </Rev>
+    <Rev Name="1,6" ModifiedBy="DESKTOP-DQKTOF4\Rockwell" ModifiedDate="Tue Nov 09 21:23:41 2021">
+      <Desc><![CDATA[]]></Desc>
+      <Header CatalogNumber="ProcessLine" Family="Logix" LibraryType="DesignPattern" CoreType="(RA-LIB) Process 5" Category="Other" Description="" Owner="Rockwell" LibraryID="1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3" MajorRev="1" MinorRev="6" Version="2.0.0" />
+    </Rev>
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
+        <Reference URI="#RevHistory1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
+          <DigestValue>GxYqvfLfdmjScWDoCCR4IhKqQHQ=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>vpIAZQMEH+c1nJjIpd42C4BvySSsrSoO1gqrc/GZ4Qz37xdKmyt7ljyluYoIz/JtBwhho4gASfefKLL+0D15MKpM9OY4iOpia4TO1LkBA56LOrt39WnZt0ffW/kcLg/IWOE1fv5j5F47/DKkPxUEFm5q/gacRekx4v56P+larpQ=</SignatureValue>
+    </Signature>
+  </RevHistory>
+  <Help><![CDATA[]]></Help>
+  <DefinitionData Id="DefinitionData1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+    <Pars>
+      <Obj Name="ObjectName" NameFormat="Line" DescFormat="Process Line">
+        <Par Name="X1" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="X2" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="Y1" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="Y2" DVal="0" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="0" Max="99999999999" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="Color" DVal="A0A0A0" DType="String" RType="Immediate" Group="" ParH="" ROnly="false" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="Width" DVal="3" DType="Int" RType="Immediate" Group="" ParH="" ROnly="false" Min="1" Max="20" CType="TextBox" AInc="false" AIncOffset="1" Pad="false" CLXDep="true" AADDep="false" />
+        <Par Name="SEAssocDisplay" DVal="" DType="String" RType="Reference" Group="HMI Configuration" Vis="True" Filter="Library.LibraryType='HMI' And Library.Category='Display'" ParH="Associated HMI SE Display" ROnly="false" CType="Reference" AInc="false" AIncOffset="1" Pad="false" CLXDep="false" AADDep="false" />
+        <Par Name="MEAssocDisplay" DVal="" DType="String" RType="Reference" Group="HMI Configuration" Vis="True" Filter="Library.LibraryType='HMI' And Library.Category='Display'" ParH="Associated HMI ME Display" ROnly="false" CType="Reference" AInc="false" AIncOffset="1" Pad="false" CLXDep="false" AADDep="false" />
+      </Obj>
+      <SObjs />
+    </Pars>
+    <Funcs>
+      <Func Name="WidthFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Integer">
+        <ifcond Value="{Width}"><![CDATA[{Abs({X1}-{X2})} < {Width}]]></ifcond>
+        <else Value="{Abs({X1}-{X2})}" />
+      </Func>
+      <Func Name="HeightFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Integer">
+        <ifcond Value="{Width}"><![CDATA[{Abs({Y1}-{Y2})} < {Width}]]></ifcond>
+        <else Value="{Abs({Y1}-{Y2})}" />
+      </Func>
+      <Func Name="midLine" Scope="Object" CLXDep="true" AADDep="false" FType="Calculation" ResType="Integer">
+        <Exp><![CDATA[{Width} / 2]]></Exp>
+      </Func>
+      <Func Name="TopFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Bool">
+        <ifcond Value="{Y2}-{midLine}"><![CDATA[{Y1}>{Y2}]]></ifcond>
+        <else Value="{Y1}-{midLine}" />
+      </Func>
+      <Func Name="LeftFinal" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Bool">
+        <ifcond Value="{X2}-{midLine}"><![CDATA[{X1}>{X2}]]></ifcond>
+        <else Value="{X1}-{midLine}" />
+      </Func>
+    </Funcs>
+    <NIBS />
+    <Links />
+    <InterfaceLinks />
+    <Subs />
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
+        <Reference URI="#DefinitionData1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
+          <DigestValue>rzVs0HsWfqEvWm5gzkAyqvF1+FE=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>BhZbzz9ut6tWkNTXHTyJ/6q9G1akNyQIAdJUjY8dlyyZe2m+qQhlqtnFfnT8onKRZsWDYPGEf86QGVZi+2I28QMEjBjrioGMS62J0azD/7OiXioQQdGRFYn0Q/9omrflYACJ5yhz4W/bAKWlJWA6wz1Y3I5sSh61lL4f7qO+/kk=</SignatureValue>
+    </Signature>
+  </DefinitionData>
+  <AttachmentsSection Id="AttachmentsSection1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+    <Collections>
+      <Collection Name="Attachments">
+        <Items />
+      </Collection>
+    </Collections>
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
+        <Reference URI="#AttachmentsSection1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
+          <DigestValue>8/oX4CBka/KQO9INxCr2i9zR0L4=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>hK7RESdj88dXBneFHlQHO2jQ6aGT00StI1j+CtwcvaCIqSZH8Lcf3CqdBh4GmpOr9cThsYfxW+TalstIkEuDyzUBEzIIxeovMQf7O6Mx1s2l9bqLFy5Y5TB/6+S8varuIk9RP/t2s/A1XTFT6RFClR2N8TlGn4hKUa4gtip2R38=</SignatureValue>
+    </Signature>
+  </AttachmentsSection>
+  <FTView Id="FTView1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+    <Collections>
+      <Collection Name="Substitutions">
+        <Items />
+      </Collection>
+      <Collection Name="SE Symbols">
+        <Items>
+          <Item Name="Line">
+            <Attributes>
+              <Attribute Name="Icons">
+                <Value><![CDATA[<line name="{ObjectName}_Line" height="{HeightFinal}" width="{WidthFinal}" left="{LeftFinal}" top="{TopFinal}" visible="true" wallpaper="false" toolTipText="" exposeToVba="notExposed" isReferenceObject="false" line="{X1} {Y1} {X2} {Y2} " backStyle="solid" lineStyle="solid" lineWidth="{Width}" backColor="teal" foreColor="#{Color}" />]]></Value>
+              </Attribute>
+              <Attribute Name="UsedSubs">
+                <Value><![CDATA[1,2,3,4,5]]></Value>
+              </Attribute>
+            </Attributes>
+          </Item>
+        </Items>
+      </Collection>
+      <Collection Name="SE VBA Items">
+        <Items />
+      </Collection>
+      <Collection Name="SE Common Code">
+        <Items />
+      </Collection>
+      <Collection Name="SE Symbol Code">
+        <Items />
+      </Collection>
+      <Collection Name="ME Symbols">
+        <Items />
+      </Collection>
+    </Collections>
+    <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+      <SignedInfo>
+        <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
+        <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
+        <Reference URI="#FTView1E5825D5-62B1-4DF7-BA33-5BA0DDC2DCF3">
+          <Transforms>
+            <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+          </Transforms>
+          <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
+          <DigestValue>4wZlLXr3CbysVl9SwKVrJDDV7uw=</DigestValue>
+        </Reference>
+      </SignedInfo>
+      <SignatureValue>Nc+XSBb6Fye3wfn/tp+pyBj6SdrHEy+McTNZwNqtRSZrgX6J4SJ++WqucUXquchm/ArI9ryvkWv/inD0ip2TcAKpgQOaVr36J8wfmOSh9CzirTKl64MgXw06AVnsvLeSIZEp+HLLD3RWf9noOej0W+1bUroa2Bn/sIU9b9lQz+s=</SignatureValue>
+    </Signature>
+  </FTView>
+</Library>

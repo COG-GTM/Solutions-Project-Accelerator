@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rockwell_plc_bridge"
+version = "0.1.0"
+description = "Sidecar exe that isolates the Rockwell Logix Designer and FactoryTalk Logix Echo Python SDKs (numpy-2 requirement) from the main Solutions Project Accelerator app (numpy-1 requirement)."
+readme = "README.md"
+requires-python = ">=3.12"
+# Runtime deps (SDK wheels) are installed manually from local paths — see
+# README.md. They aren't published to PyPI so we can't declare them here.
+dependencies = []
+
+[project.scripts]
+rockwell-plc-bridge = "rockwell_plc_bridge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
