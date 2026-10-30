@@ -5,8 +5,9 @@ project can be imported from an untrusted archive, so a stored pattern must not
 be able to hang the UI with catastrophic backtracking. Patterns are validated
 (length cap, no backreferences, no repeated group that itself repeats or
 alternates) and then matched with the ``regex`` engine under a timeout. A
-pattern that fails validation is remembered and never run again; a timeout is
-remembered only for that pattern and input string.
+pattern that fails validation is remembered and never run again. A timeout
+skips that pattern/method/input; after ``MAX_TIMEOUTS_PER_PATTERN`` timeouts
+on different inputs the pattern is rejected like an invalid one.
 """
 import logging
 import re
@@ -23,6 +24,7 @@ except ImportError:  # Python < 3.11
 
 MAX_PATTERN_LENGTH = 4096
 MATCH_TIMEOUT_SECONDS = 0.5
+MAX_TIMEOUTS_PER_PATTERN = 3
 _MAX_REJECTED_PATTERNS = 1024
 
 _REPEAT_OPS = {_sre_constants.MAX_REPEAT, _sre_constants.MIN_REPEAT}
@@ -32,6 +34,7 @@ _BACKREFERENCE_OPS = {_sre_constants.GROUPREF, _sre_constants.GROUPREF_EXISTS}
 
 _rejected_patterns = {}
 _timed_out_inputs = set()
+_timeout_counts = {}
 
 
 class UnsafeRegexError(ValueError):
@@ -97,10 +100,18 @@ def _reject(pattern, reason):
     logging.warning('Skipping stored regex %.80r: %s', pattern, reason)
 
 
-def _record_timeout(pattern, string):
+def _record_timeout(pattern, method, string):
+    count = _timeout_counts.get(pattern, 0) + 1
+    if count >= MAX_TIMEOUTS_PER_PATTERN:
+        _timeout_counts.pop(pattern, None)
+        _reject(pattern, f'matching took longer than {MATCH_TIMEOUT_SECONDS}s on {count} inputs')
+        return
+    if len(_timeout_counts) >= _MAX_REJECTED_PATTERNS:
+        _timeout_counts.clear()
+    _timeout_counts[pattern] = count
     if len(_timed_out_inputs) >= _MAX_REJECTED_PATTERNS:
         _timed_out_inputs.clear()
-    _timed_out_inputs.add((pattern, string))
+    _timed_out_inputs.add((pattern, method, string))
     logging.warning('Stored regex %.80r took longer than %ss on a %d-character input',
                     pattern, MATCH_TIMEOUT_SECONDS, len(string))
 
@@ -123,13 +134,13 @@ def is_safe_pattern(pattern):
 
 def _run(pattern, method, string, default):
     compiled = _compile(pattern)
-    if compiled is None or (pattern, string) in _timed_out_inputs:
+    if compiled is None or (pattern, method, string) in _timed_out_inputs:
         return default
     try:
         result = getattr(compiled, method)(string, timeout=MATCH_TIMEOUT_SECONDS)
         return list(result) if method == 'finditer' else result
     except TimeoutError:
-        _record_timeout(pattern, string)
+        _record_timeout(pattern, method, string)
         return default
 
 

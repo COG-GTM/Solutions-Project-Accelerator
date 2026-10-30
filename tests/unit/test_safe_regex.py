@@ -17,9 +17,11 @@ from bin.logic_linked_texts import (
 def _fresh_rejections():
     safe_regex._rejected_patterns.clear()
     safe_regex._timed_out_inputs.clear()
+    safe_regex._timeout_counts.clear()
     yield
     safe_regex._rejected_patterns.clear()
     safe_regex._timed_out_inputs.clear()
+    safe_regex._timeout_counts.clear()
 
 
 def build_regex_for(given_text_string, key_and_ignore_indexes, text_type, in_table=False):
@@ -117,6 +119,35 @@ class TestGuardedMatching:
         assert calls == [long_page]
         assert safe_regex.search(r'(\d*)x', '1x') == 'match'
         assert r'(\d*)x' not in safe_regex._rejected_patterns
+
+    def test_timeout_in_one_method_does_not_skip_another(self, monkeypatch):
+        class SlowEnumeration:
+            def finditer(self, string, timeout):
+                raise TimeoutError('regex timed out')
+
+            def search(self, string, timeout):
+                return 'first match'
+
+        monkeypatch.setattr(safe_regex.regex, 'compile', lambda pattern: SlowEnumeration())
+        page = 'a' * 1000
+        assert safe_regex.finditer('a', page) == []
+        assert safe_regex.search('a', page) == 'first match'
+
+    def test_pattern_rejected_after_repeated_timeouts(self, monkeypatch):
+        calls = []
+
+        class AlwaysSlow:
+            def search(self, string, timeout):
+                calls.append(string)
+                raise TimeoutError('regex timed out')
+
+        monkeypatch.setattr(safe_regex.regex, 'compile', lambda pattern: AlwaysSlow())
+        cells = [f'cell {i}' for i in range(10)]
+        for cell in cells:
+            assert safe_regex.search(r'(\d*)x', cell) is None
+        assert calls == cells[:safe_regex.MAX_TIMEOUTS_PER_PATTERN]
+        assert r'(\d*)x' in safe_regex._rejected_patterns
+        assert not safe_regex.is_safe_pattern(r'(\d*)x')
 
     def test_matches_like_re_for_safe_patterns(self):
         text = 'Pump P-101 runs at 12.5 bar; Pump P-102 runs at 7 bar'
