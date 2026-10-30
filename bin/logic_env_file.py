@@ -4,6 +4,10 @@ Deployment-specific values (support links, optional enterprise LLM gateway
 settings) are supplied through the environment so nothing site-specific is
 committed. Real environment variables always win over ``.env`` entries.
 
+The process working directory is deliberately NOT searched: the app is the
+registered ``.aip`` handler, so Explorer starts it inside whatever folder holds
+the double-clicked file, and that folder may have been written by someone else.
+
 No third-party dependency: the format is the common ``KEY=value`` subset
 (``#`` comments, optional ``export`` prefix, optional surrounding quotes).
 """
@@ -13,6 +17,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ENV_FILE_VAR = "SPA_ENV_FILE"
 
@@ -20,9 +25,9 @@ ENV_FILE_VAR = "SPA_ENV_FILE"
 def _candidates() -> list[Path]:
     paths: list[Path] = []
     explicit = os.environ.get(ENV_FILE_VAR)
-    if explicit:
+    # A relative path would resolve against the (untrusted) working directory.
+    if explicit and Path(explicit).is_absolute():
         paths.append(Path(explicit))
-    paths.append(Path.cwd() / ".env")
     if getattr(sys, "frozen", False):
         paths.append(Path(sys.executable).parent / ".env")
         meipass = getattr(sys, "_MEIPASS", None)
@@ -75,3 +80,27 @@ def load_env_file(path=None, override=False):
                 if first_used is None:
                     first_used = candidate
     return first_used
+
+
+_WEB_SCHEMES = ("http", "https")
+
+
+def safe_web_url(url):
+    """Return ``url`` stripped if it is an absolute http(s) URL, else ``None``.
+
+    ``webbrowser.open`` is ``os.startfile`` on Windows, so anything else (UNC
+    paths, ``file:``, local executables, other URI handlers) must be refused.
+    """
+    if not isinstance(url, str):
+        return None
+    url = url.strip()
+    if not url or "\\" in url or any(ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F for ch in url):
+        return None
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+    except ValueError:
+        return None
+    if parts.scheme.lower() not in _WEB_SCHEMES or not host:
+        return None
+    return url

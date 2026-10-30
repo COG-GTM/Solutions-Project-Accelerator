@@ -30,6 +30,7 @@ from bin.logic_llm_inference import UnifiedInference
 from bin.logic_secret_store import has_openai_key
 from .gui_menu import Custom_Menu
 from .logic_config import Config
+from .logic_env_file import safe_web_url
 from .logic_logger import logging, handle_exception
 from .logic_tools import  start_build_hmi, build_pages, create_alarms, export_images, export_reduced_images, find_pages_needing_hmi_displays, get_version_number, open_figures, start_build_plc
 from .logic_logix_designer import push_build_output_to_logix_designer, is_sdk_available, sdk_install_hint, LogixDesignerSdkNotFoundError
@@ -1540,9 +1541,23 @@ class MainGUI(ttk.Frame):
             pass
 
     def __open_configured_url(self, url, env_var):
-        """Open ``url``, or explain which variable to set when it is blank."""
+        """Open ``url``, or explain which variable to set when it is blank.
+
+        Only absolute http(s) URLs are opened; on Windows ``webbrowser.open``
+        is ``os.startfile`` and would also launch programs and UNC paths.
+        """
+        safe_url = safe_web_url(url)
+        if safe_url:
+            webbrowser.open(safe_url)
+            return
         if url:
-            webbrowser.open(url)
+            logging.warning(f"Ignoring {env_var}: not an absolute http(s) URL.")
+            messagebox.showinfo(
+                'Link not configured',
+                f'The {env_var} value is not an http:// or https:// URL and '
+                'was ignored.',
+                master=self.master,
+            )
             return
         messagebox.showinfo(
             'Link not configured',
