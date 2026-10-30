@@ -9,6 +9,11 @@ from svgpathtools.path import transform
 
 import numpy as np
 
+try:
+    from bin.logic_safe_expression import evaluate_arithmetic
+except ImportError:
+    from logic_safe_expression import evaluate_arithmetic
+
 class AnchorDirection(str, Enum):
     """Enum defining different anchor types"""
     TOP = "top"
@@ -91,17 +96,10 @@ def parse_handlebars(text, variables=None, functions=None, replace_unknown_vars=
             if replace_unknown_vars and not var.isdigit() and var not in [str(v) for v in variables.values()]:
                 expr = expr.replace(var, '0')
         
-        # Safely evaluate mathematical expression
+        # Arithmetic goes through a restricted AST evaluator; never eval().
         try:
-            # Use ast.literal_eval for simple expressions, or eval with limited scope for complex ones
             if any(op in expr for op in ['+', '-', '*', '/', '(', ')']):
-                # Create a safe evaluation environment
-                allowed_names = {
-                    "__builtins__": {},
-                    "abs": abs, "round": round, "max": max, "min": min,
-                    "int": int, "float": float
-                }
-                return eval(expr, allowed_names, {})
+                return evaluate_arithmetic(expr)
             else:
                 return ast.literal_eval(expr)
         except:
