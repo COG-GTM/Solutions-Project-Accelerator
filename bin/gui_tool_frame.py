@@ -6,6 +6,7 @@ from bin.gui_approval_cells import expandable_approval_list_canvas_cell, expanda
 from bin.logic_acm_libraries_retrieval import acm_libraries_retrieval
 from bin.logic_background_tasks_handler import background_tasks_handler
 from bin.logic_profile import profile
+from bin.logic_safe_regex import match_object_names
 import tkinter as tk               
 from tkinter import font  as tkfont
 import numpy as np
@@ -522,7 +523,7 @@ class tags_page(tk.Frame):
             
 
     def search_objects(self, regex_string, internal_db_only_df):
-        return internal_db_only_df[internal_db_only_df['Name'].str.match(regex_string)]
+        return internal_db_only_df[match_object_names(internal_db_only_df['Name'], regex_string)]
 
 
 
