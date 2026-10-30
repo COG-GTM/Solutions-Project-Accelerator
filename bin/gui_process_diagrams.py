@@ -4233,6 +4233,7 @@ class ProcessDisplayCanvas(tk.Frame):
             element = gfx_file_editor.add_acm_element(gfx_file_editor.element_map, acm_id, row)
             canvas_element = self.create_static_graphic_canvas_element(row['Name'], element)
             if canvas_element is None:
+                gfx_file_editor.element_map.pop(row['Name'], None)
                 return
 
             self.add_element(canvas_element)
