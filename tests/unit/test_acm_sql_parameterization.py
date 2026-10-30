@@ -105,6 +105,34 @@ def test_injected_project_id_is_rejected_before_any_query(handler, queries, monk
     assert missing == [True]
 
 
+def test_invalid_project_id_unlinks_previous_project(handler, queries, monkeypatch):
+    monkeypatch.setattr(handler, 'set_objects_filter', lambda *a, **k: None)
+    handler.set_project_id(10)
+    assert handler.get_project_id() == 10
+
+    handler.set_project_id(INJECTED_PROJECT_ID)
+
+    assert handler.get_project_id() is None
+    assert handler._ACM_Data_Handler__is_linked is False
+
+
+@pytest.mark.parametrize('acm_filter', [
+    "Objects.ProjectID=1",
+    "SubObjects.ChangeUser='sa'",
+    "RegisteredLibraries.Password='x'",
+    "Projects.Name='x'",
+])
+def test_filter_columns_outside_allowlist_are_rejected(acm_filter):
+    with pytest.raises(ValueError):
+        parameterize_acm_filter(acm_filter)
+
+
+def test_filter_columns_are_canonicalised():
+    sql, params = parameterize_acm_filter("registeredlibraries.librarytype='HMI'")
+    assert sql == 'and (RegisteredLibraries.LibraryType = ?)'
+    assert params == ('HMI',)
+
+
 def test_valid_project_id_is_cast_and_bound(handler, queries, monkeypatch):
     monkeypatch.setattr(handler, 'set_objects_filter', lambda *a, **k: None)
     handler.set_project_id('6044')

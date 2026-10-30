@@ -114,6 +114,13 @@ class ACM_Data_Handler():
                 project_id = to_db_id(project_id, 'project_id')
             except ValueError:
                 logging.error('Ignoring invalid ACM project id: %r', project_id)
+                self.__project_id = None
+                self.__is_linked = False
+                self.__objects_df = pd.DataFrame()
+                self.__all_objects_df = pd.DataFrame()
+                self.__subobjects_df = pd.DataFrame()
+                self.__parameters_df = pd.DataFrame()
+                self.__subparameters_df = pd.DataFrame()
                 if self.__project_missing_callback:
                     self.__project_missing_callback()
                 return

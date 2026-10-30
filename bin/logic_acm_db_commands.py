@@ -56,7 +56,22 @@ _FILTER_TOKEN = re.compile(
     r"|(?P<number>-?\d+(?:\.\d+)?)"
     r"|(?P<operator><>|!=|>=|<=|=|<|>)"
     r"|(?P<word>[A-Za-z]+))")
-_FILTER_TABLES = {'registeredlibraries', 'objects', 'subobjects'}
+_FILTER_COLUMNS = {
+    'registeredlibraries': ('RegisteredLibraries', (
+        'LibraryID', 'Name', 'LibraryType', 'Category', 'CoreType', 'Version', 'Description')),
+    'objects': ('Objects', ('Name', 'LibraryType', 'CatalogNumber', 'Description')),
+    'subobjects': ('SubObjects', ('Name', 'DisplayName', 'Type', 'Description')),
+}
+
+
+def _filter_column(column):
+    table, _, name = column.partition('.')
+    entry = _FILTER_COLUMNS.get(table.lower())
+    if entry:
+        for allowed in entry[1]:
+            if allowed.lower() == name.lower():
+                return '{}.{}'.format(entry[0], allowed)
+    raise ValueError('Unsupported ACM filter column: {!r}'.format(column))
 
 
 def parameterize_acm_filter(filter_expression):
@@ -86,8 +101,9 @@ def parameterize_acm_filter(filter_expression):
         if index + 3 > len(tokens):
             raise ValueError('Unsupported ACM filter: {!r}'.format(filter_expression))
         (kind_col, column), (kind_op, operator), (kind_val, value) = tokens[index:index + 3]
-        if kind_col != 'column' or column.split('.')[0].lower() not in _FILTER_TABLES:
+        if kind_col != 'column':
             raise ValueError('Unsupported ACM filter column: {!r}'.format(column))
+        column = _filter_column(column)
         if kind_op == 'word' and operator.upper() == 'LIKE':
             operator = 'LIKE'
         elif kind_op != 'operator':
