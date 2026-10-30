@@ -310,6 +310,7 @@ class New_Project_Wizard(Wizard):
 
         if not Validators.check_project_name_valid(sv.get()):
             self.disable_next()
+            self.project_name_entry_error.config(text='Invalid name.' if sv.get() else '')
             return
 
 

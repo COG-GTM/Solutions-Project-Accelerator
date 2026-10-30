@@ -1,7 +1,9 @@
 try:
     from bin.logic_file_manager import Project_File_Manager
+    from bin.logic_project_paths import is_valid_project_name
 except:
     from logic_file_manager import Project_File_Manager
+    from logic_project_paths import is_valid_project_name
 import os
 import re
 import openpyxl
@@ -130,13 +132,9 @@ class Validators:
         :returns: True if the project name is valid, False otherwise.
         :rtype: bool
         
-        This function checks if the given project name is valid by checking if the name is not empty.
+        A valid name is a plain folder name that stays inside the projects folder (see logic_project_paths).
         """
-        
-        # noinspection PyBroadException
-        if not name:
-            return False
-        return True
+        return is_valid_project_name(name)
 
 
     @staticmethod
