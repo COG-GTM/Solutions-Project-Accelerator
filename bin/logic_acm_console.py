@@ -209,17 +209,22 @@ ACM_IDENTIFIER_PATTERN = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 
 _XML_ATTR_ENTITIES = {'"': '&quot;', "'": '&apos;', '\n': '&#10;', '\r': '&#13;', '\t': '&#9;'}
 
+# Characters XML 1.0 forbids outright, even as character references
+_XML_INVALID_CHARS = re.compile('[^\t\n\r\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]')
+
 
 def xml_attr(value):
     """
     Escape a value for use inside a double-quoted XML attribute of an ACM InstanceData file.
+    Characters that are not allowed anywhere in XML 1.0 (e.g. U+0001) are dropped.
 
     :param value: The value to escape
     :type value: Any
     :return: The escaped text
     :rtype: str
     """
-    return _xml_escape('' if value is None else str(value), _XML_ATTR_ENTITIES)
+    text = _XML_INVALID_CHARS.sub('', '' if value is None else str(value))
+    return _xml_escape(text, _XML_ATTR_ENTITIES)
 
 
 def acm_identifier(value, kind='Name'):

@@ -121,6 +121,13 @@ class TestHelpers:
     def test_xml_attr_escapes_markup_and_line_breaks(self):
         assert xml_attr('a"<b>&\'\n') == 'a&quot;&lt;b&gt;&amp;&apos;&#10;'
 
+    def test_xml_attr_drops_characters_forbidden_in_xml(self):
+        value = 'Pump\x01\x0b\x1f\ufffe\ud800 1\t\u00e9\U0001f600'
+        escaped = xml_attr(value)
+        assert escaped == 'Pump 1&#9;\u00e9\U0001f600'
+        element = ET.fromstring(f'<IObj Description="{escaped}"/>')
+        assert element.get('Description') == 'Pump 1\t\u00e9\U0001f600'
+
     def test_render_objects_xml_rejects_injected_object_name(self):
         with pytest.raises(ValueError, match='IObj'):
             render_objects_xml({INJECTED_OBJECT: {'task': 'T', 'program': 'P', 'description': ''}}, *LIBRARY)
