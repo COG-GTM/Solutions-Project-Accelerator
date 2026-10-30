@@ -52,15 +52,24 @@ def is_inside(root, path):
         return False
 
 
+def is_link(path):
+    """True for symlinks and (on Windows) directory junctions."""
+    isjunction = getattr(os.path, 'isjunction', None)
+    return os.path.islink(path) or bool(isjunction and isjunction(path))
+
+
 def project_dir(name):
     """
     Absolute path of the folder for project ``name``, guaranteed to be a direct child of ./projects.
 
-    :raises InvalidProjectName: if the name is not a plain folder name.
+    :raises InvalidProjectName: if the name is not a plain folder name, or the existing
+        folder is a symlink/junction that resolves outside the projects folder.
     """
     validate_project_name(name)
     root = projects_root()
     destination = os.path.abspath(os.path.join(root, name))
     if os.path.dirname(destination) != root or not is_inside(root, destination):
         raise InvalidProjectName("Project folder for %r is outside the projects folder." % name)
+    if is_link(destination) or not is_inside(os.path.realpath(root), os.path.realpath(destination)):
+        raise InvalidProjectName("Project folder for %r is a link; refusing to use it." % name)
     return destination

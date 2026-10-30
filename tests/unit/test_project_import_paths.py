@@ -125,3 +125,81 @@ def test_uncompressed_size_limit(workspace, monkeypatch):
     with pytest.raises(aip.InvalidProjectArchive, match='expands'):
         aip.import_project(archive, 'Pump Skid')
     assert not (workspace / 'app' / 'projects' / 'Pump Skid').exists()
+
+
+def projects_entries(workspace):
+    return sorted(os.listdir(workspace / 'app' / 'projects'))
+
+
+def test_read_project_name_rejects_unsafe_members_before_any_delete(workspace):
+    archive = make_aip(workspace / 'bad.aip', 'Pump Skid', {'../bad.txt': b'x'})
+
+    with pytest.raises(aip.InvalidProjectArchive):
+        aip.read_project_name_from_zip(archive)
+
+
+def test_oversized_project_ini_is_rejected_before_reading(workspace, monkeypatch):
+    monkeypatch.setattr(aip, 'MAX_PROJECT_INI_BYTES', 16)
+    archive = make_aip(workspace / 'big_ini.aip', 'Pump Skid')
+
+    with pytest.raises(aip.InvalidProjectArchive, match='project.ini'):
+        aip.read_project_name_from_zip(archive)
+
+
+def test_existing_project_requires_replace(workspace):
+    aip.import_project(make_aip(workspace / 'v1.aip', 'Pump Skid'), 'Pump Skid')
+
+    with pytest.raises(FileExistsError):
+        aip.import_project(make_aip(workspace / 'v2.aip', 'Pump Skid'), 'Pump Skid')
+
+
+def test_replace_swaps_in_new_content(workspace):
+    aip.import_project(make_aip(workspace / 'v1.aip', 'Pump Skid', {'old.txt': b'old'}), 'Pump Skid')
+
+    aip.import_project(make_aip(workspace / 'v2.aip', 'Pump Skid', {'new.txt': b'new'}), 'Pump Skid', replace=True)
+
+    target = workspace / 'app' / 'projects' / 'Pump Skid'
+    assert (target / 'new.txt').read_bytes() == b'new'
+    assert not (target / 'old.txt').exists()
+    assert projects_entries(workspace) == ['Pump Skid']
+
+
+@pytest.mark.parametrize('extra', [{'../bad.txt': b'x'}, {'big.bin': b'\0' * 4096}])
+def test_rejected_replacement_keeps_existing_project(workspace, monkeypatch, extra):
+    aip.import_project(make_aip(workspace / 'v1.aip', 'Pump Skid', {'old.txt': b'old'}), 'Pump Skid')
+    monkeypatch.setattr(aip, 'MAX_ARCHIVE_UNCOMPRESSED_BYTES', 1024)
+
+    with pytest.raises(aip.InvalidProjectArchive):
+        aip.import_project(make_aip(workspace / 'v2.aip', 'Pump Skid', extra), 'Pump Skid', replace=True)
+
+    assert (workspace / 'app' / 'projects' / 'Pump Skid' / 'old.txt').read_bytes() == b'old'
+    assert projects_entries(workspace) == ['Pump Skid']
+
+
+def test_failed_extraction_keeps_existing_project_and_cleans_staging(workspace, monkeypatch):
+    aip.import_project(make_aip(workspace / 'v1.aip', 'Pump Skid', {'old.txt': b'old'}), 'Pump Skid')
+
+    def boom(self, path=None, members=None, pwd=None):
+        open(os.path.join(path, 'partial.txt'), 'w').close()
+        raise OSError('disk full')
+
+    monkeypatch.setattr(zipfile.ZipFile, 'extractall', boom)
+    with pytest.raises(OSError):
+        aip.import_project(make_aip(workspace / 'v2.aip', 'Pump Skid'), 'Pump Skid', replace=True)
+
+    assert (workspace / 'app' / 'projects' / 'Pump Skid' / 'old.txt').read_bytes() == b'old'
+    assert projects_entries(workspace) == ['Pump Skid']
+
+
+def test_symlinked_project_folder_is_rejected(workspace):
+    outside = workspace / 'outside'
+    outside.mkdir()
+    os.symlink(outside, workspace / 'app' / 'projects' / 'Pump Skid', target_is_directory=True)
+    archive = make_aip(workspace / 'link.aip', 'Pump Skid')
+
+    with pytest.raises(InvalidProjectName):
+        aip.read_project_name_from_zip(archive)
+    with pytest.raises(InvalidProjectName):
+        aip.import_project(archive, 'Pump Skid', replace=True)
+
+    assert os.listdir(outside) == []

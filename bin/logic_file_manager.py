@@ -372,6 +372,8 @@ class Project_File_Manager():
             return[]
 
         for project in folders[0]: 
+            if project.startswith('.'):  # import staging folders, hidden folders
+                continue
             projects.append(project)
 
         return projects

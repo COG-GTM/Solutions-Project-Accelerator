@@ -1,15 +1,20 @@
 import zipfile
 import os
 import shutil
+import tempfile
+import uuid
 from configparser import ConfigParser
 from io import StringIO
 try:
-    from bin.logic_project_paths import InvalidProjectName, is_inside, project_dir, validate_project_name
+    from bin.logic_project_paths import InvalidProjectName, is_inside, is_link, project_dir, validate_project_name
 except ImportError:
-    from logic_project_paths import InvalidProjectName, is_inside, project_dir, validate_project_name
+    from logic_project_paths import InvalidProjectName, is_inside, is_link, project_dir, validate_project_name
 
 MAX_ARCHIVE_ENTRIES = 50000
 MAX_ARCHIVE_UNCOMPRESSED_BYTES = 4 * 1024 ** 3
+MAX_PROJECT_INI_BYTES = 64 * 1024
+STAGING_PREFIX = '.aip-import-'
+REPLACED_PREFIX = '.aip-replaced-'
 
 
 class InvalidProjectArchive(ValueError):
@@ -79,7 +84,30 @@ def check_archive_members(zip_ref, destination):
             raise InvalidProjectArchive(f"The AIP archive entry {name!r} points outside the project folder.")
 
 
-def import_project(zip_file_path, project_name):
+def _remove_tree(path):
+    if is_link(path):
+        os.unlink(path) if os.path.islink(path) else os.rmdir(path)
+    else:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def _swap_into_place(staging, destination):
+    """Move ``staging`` to ``destination``; an existing destination is only removed once the move succeeded."""
+    backup = None
+    if os.path.lexists(destination):
+        backup = os.path.join(os.path.dirname(destination), REPLACED_PREFIX + uuid.uuid4().hex)
+        os.rename(destination, backup)
+    try:
+        os.rename(staging, destination)
+    except Exception:
+        if backup:
+            os.rename(backup, destination)
+        raise
+    if backup:
+        _remove_tree(backup)
+
+
+def import_project(zip_file_path, project_name, replace=False):
     """
     Import a project by extracting the (aip) zip archive into ./projects/<project_name>.
 
@@ -87,40 +115,47 @@ def import_project(zip_file_path, project_name):
     :type zip_file_path: str
     :param project_name: The project name; must be a plain folder name (see logic_project_paths).
     :type project_name: str
+    :param replace: Replace an existing project folder of the same name.
+    :type replace: bool
     :return: True if the import was successful.
     :rtype: bool
 
     :raises InvalidProjectName: If the project name is not a plain folder name.
     :raises InvalidProjectArchive: If the archive is too large or has unsafe entry names.
+    :raises FileExistsError: If the project folder exists and ``replace`` is False.
     :raises FileNotFoundError: If the (aip) zip file does not exist.
     :raises zipfile.BadZipFile: If the file is not a valid (aip) zip file.
     :raises PermissionError: If there are issues with write permissions.
     :raises OSError: If a file system error occurs.
 
-    The folder structure within the (aip) zip file is preserved. Nothing is written
-    unless the destination is a direct child of ./projects and every entry stays inside it.
+    The archive is validated, then extracted into a fresh staging folder under ./projects and
+    renamed into place. An existing project is only removed after the new one is in place, so a
+    rejected or failed import leaves it untouched.
 
     Example:
         >>> import_project('my_project.aip', 'my_project')
     """
     abs_extract_to_path = project_dir(project_name)
-    created = False
+    root = os.path.dirname(abs_extract_to_path)
     try:
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             check_archive_members(zip_ref, abs_extract_to_path)
 
-            if not os.path.exists(abs_extract_to_path):
-                os.makedirs(abs_extract_to_path)
-                created = True
+            if os.path.lexists(abs_extract_to_path) and not replace:
+                raise FileExistsError(f"The project '{project_name}' already exists.")
 
+            os.makedirs(root, exist_ok=True)
+            staging = tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=root)
             try:
-                zip_ref.extractall(abs_extract_to_path)
+                zip_ref.extractall(staging)
+                _swap_into_place(staging, abs_extract_to_path)
             except Exception:
-                if created:
-                    shutil.rmtree(abs_extract_to_path, ignore_errors=True)
+                shutil.rmtree(staging, ignore_errors=True)
                 raise
 
         return True
+    except FileExistsError:
+        raise
     except FileNotFoundError:
         raise FileNotFoundError(f"The AIP file '{zip_file_path}' does not exist.")
     except zipfile.BadZipFile:
@@ -140,6 +175,7 @@ def read_project_name_from_zip(zip_path):
     :return: The name of the project.
     :rtype: str
     :raises InvalidProjectName: If the name is not a plain folder name (e.g. contains '..' or path separators).
+    :raises InvalidProjectArchive: If project.ini or the archive exceeds the size limits or has unsafe entry names.
 
     This function reads the project name from a (aip) zip file by extracting the 'project.ini' file from the zip,
     parsing its content, and returning the value of the 'Name' key in the 'DEFAULT' section of the config file.
@@ -157,12 +193,19 @@ def read_project_name_from_zip(zip_path):
         if config_file_name not in zip.namelist():
             raise KeyError(f"Not a valid project")
 
+        if zip.getinfo(config_file_name).file_size > MAX_PROJECT_INI_BYTES:
+            raise InvalidProjectArchive(f"project.ini is larger than {MAX_PROJECT_INI_BYTES} bytes.")
+
         # Read the config file content
         with zip.open(config_file_name) as config_file:
             config_content = StringIO(config_file.read().decode())
 
-    # Parse the config file
-    config_parser = ConfigParser()
-    config_parser.read_file(config_content)
+        # Parse the config file
+        config_parser = ConfigParser()
+        config_parser.read_file(config_content)
+        name = validate_project_name(config_parser['DEFAULT']['Name'])
 
-    return validate_project_name(config_parser['DEFAULT']['Name'])
+        # Reject unsafe archives here so callers never delete or overwrite anything for them
+        check_archive_members(zip, project_dir(name))
+
+    return name
