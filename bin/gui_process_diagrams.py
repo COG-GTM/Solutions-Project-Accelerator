@@ -20,7 +20,7 @@ try:
     from bin.logic_acm_data_handler import ACM_Data_Handler
     from bin.gui_elements import loading_animation
     from bin.logic_gfx_file_editor import GfxFileEditor
-    from bin.logic_gfx_to_svg import AnchorDirection
+    from bin.logic_gfx_to_svg import AnchorDirection, render_svg_to_png
     from bin.gui_hmi_symbol_selector import HMISymbolSelector
     from bin.gui_autoscrollbar import AutoScrollbar
     from bin.logic_process_line_extraction import ProcessLinesExtractor
@@ -34,7 +34,7 @@ except Exception as e:
     from logic_acm_data_handler import ACM_Data_Handler
     from gui_elements import loading_animation
     from logic_gfx_file_editor import GfxFileEditor
-    from logic_gfx_to_svg import AnchorDirection
+    from logic_gfx_to_svg import AnchorDirection, render_svg_to_png
     from gui_hmi_symbol_selector import HMISymbolSelector
     from gui_autoscrollbar import AutoScrollbar
     from logic_process_line_extraction import ProcessLinesExtractor
@@ -4328,7 +4328,7 @@ class ProcessDisplayCanvas(tk.Frame):
     def __create_canvas_image_from_svg(self, svg: str, color=None, return_image=True):
         out = BytesIO()
         byte_image = str.encode(svg.format(hex_color=color))
-        cairosvg.svg2png(byte_image, write_to=out, scale=self.imscale)
+        render_svg_to_png(byte_image, write_to=out, scale=self.imscale)
         if return_image:
             return ImageTk.PhotoImage(Image.open(out))
         else:

@@ -4,10 +4,45 @@ import xml.etree.ElementTree as ET
 from typing import Dict, Any
 import re
 import ast
+from xml.sax.saxutils import escape as xml_escape
 from svgpathtools import parse_path
 from svgpathtools.path import transform
 
 import numpy as np
+
+
+_ATTR_ENTITIES = {'"': '&quot;', "'": '&apos;'}
+
+
+def _attr(value) -> str:
+    """Escape a library XML value for a quoted SVG attribute."""
+    return xml_escape(str(value), _ATTR_ENTITIES)
+
+
+def _text(value) -> str:
+    """Escape a library XML value for SVG character data."""
+    return xml_escape(str(value))
+
+
+def data_only_url_fetcher(url, resource_type=None):
+    """cairosvg url_fetcher that only resolves inline ``data:`` URLs.
+
+    Library symbols come from project folders that may have been imported
+    from an untrusted .aip archive, so rendering must never reach the
+    network or the local filesystem.
+    """
+    if not str(url).strip().lower().startswith('data:'):
+        raise ValueError(f"Blocked external resource in SVG: {str(url)[:80]}")
+    from cairosvg.url import fetch
+    return fetch(url, resource_type)
+
+
+def render_svg_to_png(svg, **kwargs) -> bytes:
+    """Rasterise generated SVG with cairosvg without fetching external resources."""
+    if isinstance(svg, str):
+        svg = svg.encode('utf-8')
+    import cairosvg
+    return cairosvg.svg2png(bytestring=svg, unsafe=False, url_fetcher=data_only_url_fetcher, **kwargs)
 
 class AnchorDirection(str, Enum):
     """Enum defining different anchor types"""
@@ -547,7 +582,7 @@ def convert_arc(attrs: Dict[str, Any]) -> str:
     if attrs['backStyle'] == 'transparent':
         attrs['backColor'] = 'none'
     
-    return f'<path d="{path_data}" fill="{attrs["backColor"]}" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}" stroke-linecap="round" paint-order="stroke"/>'
+    return f'<path d="{path_data}" fill="{_attr(attrs["backColor"])}" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}" stroke-linecap="round" paint-order="stroke"/>'
 
 
 def calculate_ellipse_from_arc_bounds(left: float, top: float, width: float, height: float, 
@@ -620,11 +655,11 @@ def create_svg_ellipse(params: Dict, cx: float, cy: float, rx: float, ry: float)
     stroke = params['foreColor']
     stroke_width = params['lineWidth']
     
-    return f'''<ellipse id="{params['name']}" 
+    return f'''<ellipse id="{_attr(params['name'])}" 
          cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" 
-         fill="{fill}" 
-         stroke="{stroke}" 
-         stroke-width="{stroke_width}"/>'''
+         fill="{_attr(fill)}" 
+         stroke="{_attr(stroke)}" 
+         stroke-width="{_attr(stroke_width)}"/>'''
 
 
 def create_arc_path(cx: float, cy: float, rx: float, ry: float, 
@@ -681,7 +716,7 @@ def convert_string_display(attrs: Dict[str, Any]) -> str:
     num_x_chars = int(attrs['width']) // int(fontSize)
     # create a caption with "X" repeated to fill the width
     text = 'S ' * num_x_chars
-    return f'<text x="{attrs["left"]}" y="{int(attrs["top"]) + int(int(attrs["height"])/5*4)}" fill="{attrs["foreColor"]}" font-family="{attrs["fontFamily"]}" font-weight="{font_weight}" font-size="{int(fontSize*1.2)}">{text}</text>'
+    return f'<text x="{_attr(attrs["left"])}" y="{int(attrs["top"]) + int(int(attrs["height"])/5*4)}" fill="{_attr(attrs["foreColor"])}" font-family="{_attr(attrs["fontFamily"])}" font-weight="{font_weight}" font-size="{int(fontSize*1.2)}">{text}</text>'
 
 def convert_numeric_display(attrs: Dict[str, Any]) -> str:
     """
@@ -700,7 +735,7 @@ def convert_numeric_display(attrs: Dict[str, Any]) -> str:
     num_0_chars = int(attrs['width']) // int(fontSize)
     # create a caption with "0" repeated to fill the width
     text = '# ' * num_0_chars
-    return f'<text x="{attrs["left"]}" y="{int(attrs["top"]) + int(int(attrs["height"])/5*4)}" fill="{attrs["foreColor"]}" font-family="{attrs["fontFamily"]}" font-weight="{font_weight}" font-size="{int(fontSize*1.2)}">{text}</text>'
+    return f'<text x="{_attr(attrs["left"])}" y="{int(attrs["top"]) + int(int(attrs["height"])/5*4)}" fill="{_attr(attrs["foreColor"])}" font-family="{_attr(attrs["fontFamily"])}" font-weight="{font_weight}" font-size="{int(fontSize*1.2)}">{text}</text>'
 
 
 def convert_ellipse(attrs: Dict[str, Any]) -> str:
@@ -710,15 +745,15 @@ def convert_ellipse(attrs: Dict[str, Any]) -> str:
     ry = int(attrs['height']) // 2
     if attrs['backStyle'] == 'transparent':
         attrs['backColor'] = 'none'
-    return f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="{attrs["backColor"]}" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}"/>'
+    return f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="{_attr(attrs["backColor"])}" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}"/>'
 
 def convert_freehand(attrs: Dict[str, Any]) -> str:
     path = attrs['path'].strip().replace(' ', 'L').replace('L', ' L')
-    return f'<path d="M {path}" fill="none" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}"/>'
+    return f'<path d="M {_attr(path)}" fill="none" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}"/>'
 
 def convert_line(attrs: Dict[str, Any]) -> str:
     x1, y1, x2, y2 = attrs['line'].split()
-    return f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}" stroke-linecap="round"/>'
+    return f'<line x1="{_attr(x1)}" y1="{_attr(y1)}" x2="{_attr(x2)}" y2="{_attr(y2)}" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}" stroke-linecap="round"/>'
 
 def convert_polygon(attrs: Dict[str, Any]) -> str:
     points = attrs['path'].strip().replace(' ', ',')
@@ -733,7 +768,7 @@ def convert_polygon(attrs: Dict[str, Any]) -> str:
     if attrs['backStyle'] == 'transparent':
         attrs['backColor'] = 'none'
 
-    return f'<polygon points="{",".join(new_points)}" fill="{attrs["backColor"]}" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}" stroke-linejoin="round"/>'
+    return f'<polygon points="{",".join(new_points)}" fill="{_attr(attrs["backColor"])}" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}" stroke-linejoin="round"/>'
 
 def convert_polyline(attrs: Dict[str, Any]) -> str:
     points = attrs['path'].strip().replace(' ', ',')
@@ -744,21 +779,21 @@ def convert_polyline(attrs: Dict[str, Any]) -> str:
         new_x = int(points.split(",")[i]) - min_x + int(attrs['left'])
         new_y = int(points.split(",")[i+1]) - min_y + int(attrs['top'])
         new_points.append(f"{new_x},{new_y}")
-    return f'<polyline points="{",".join(new_points)}" fill="none" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}"/>'
+    return f'<polyline points="{",".join(new_points)}" fill="none" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}"/>'
 
 def convert_rectangle(attrs: Dict[str, Any]) -> str:
 
     if attrs['backStyle'] == 'transparent':
         attrs['backColor'] = 'none'
 
-    return f'<rect x="{attrs["left"]}" y="{attrs["top"]}" width="{attrs["width"]}" height="{attrs["height"]}" fill="{attrs["backColor"]}" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}" stroke-linejoin="round"/>'
+    return f'<rect x="{_attr(attrs["left"])}" y="{_attr(attrs["top"])}" width="{_attr(attrs["width"])}" height="{_attr(attrs["height"])}" fill="{_attr(attrs["backColor"])}" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}" stroke-linejoin="round"/>'
 
 def convert_rounded_rectangle(attrs: Dict[str, Any]) -> str:
     
     if attrs['backStyle'] == 'transparent':
         attrs['backColor'] = 'none'
 
-    return f'<rect x="{attrs["left"]}" y="{attrs["top"]}" width="{attrs["width"]}" height="{attrs["height"]}" rx="{attrs["roundingWidth"]}" ry="{attrs["roundingHeight"]}" fill="{attrs["backColor"]}" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}"/>'
+    return f'<rect x="{_attr(attrs["left"])}" y="{_attr(attrs["top"])}" width="{_attr(attrs["width"])}" height="{_attr(attrs["height"])}" rx="{_attr(attrs["roundingWidth"])}" ry="{_attr(attrs["roundingHeight"])}" fill="{_attr(attrs["backColor"])}" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}"/>'
 
 def convert_wedge(attrs: Dict[str, Any]) -> str:
 
@@ -788,7 +823,7 @@ def convert_wedge(attrs: Dict[str, Any]) -> str:
     if attrs['backStyle'] == 'transparent':
         attrs['backColor'] = 'none'
     
-    return f'<path d="{path_data}" fill="{attrs["backColor"]}" stroke="{attrs["foreColor"]}" stroke-width="{attrs["lineWidth"]}" stroke-linejoin="round" paint-order="stroke"/>'
+    return f'<path d="{path_data}" fill="{_attr(attrs["backColor"])}" stroke="{_attr(attrs["foreColor"])}" stroke-width="{_attr(attrs["lineWidth"])}" stroke-linejoin="round" paint-order="stroke"/>'
 
 def create_wedge_path(cx: float, cy: float, rx: float, ry: float, 
                      start_angle: float, end_angle: float) -> str:
@@ -907,7 +942,7 @@ def calculate_ellipse_from_wedge_bounds(left: float, top: float, width: float, h
 
 def convert_text(attrs: Dict[str, Any]) -> str:
     font_weight="bold" if attrs.get("bold") == "true" else "normal"
-    return f'<text x="{attrs["left"]}" y="{int(attrs["top"]) + int(int(attrs["height"])/5*4)}" fill="{attrs["foreColor"]}" font-family="{attrs["fontFamily"]}" font-weight="{font_weight}" font-size="{int(int(attrs["fontSize"])*1.2)}">{attrs["caption"]}</text>'
+    return f'<text x="{_attr(attrs["left"])}" y="{int(attrs["top"]) + int(int(attrs["height"])/5*4)}" fill="{_attr(attrs["foreColor"])}" font-family="{_attr(attrs["fontFamily"])}" font-weight="{font_weight}" font-size="{int(int(attrs["fontSize"])*1.2)}">{_text(attrs["caption"])}</text>'
 
 def convert_image(attrs: Dict[str, Any]) -> str:
     x = attrs["left"]
@@ -916,9 +951,9 @@ def convert_image(attrs: Dict[str, Any]) -> str:
     height = attrs["height"]
     return f'''
     <g>
-        <rect x="{x}" y="{y}" width="{width}" height="{height}" fill="lightgray" stroke="gray" stroke-width="1"/>
-        <line x1="{x}" y1="{y}" x2="{int(x)+int(width)}" y2="{int(y)+int(height)}" stroke="gray" stroke-width="1"/>
-        <line x1="{x}" y1="{int(y)+int(height)}" x2="{int(x)+int(width)}" y2="{y}" stroke="gray" stroke-width="1"/>
+        <rect x="{_attr(x)}" y="{_attr(y)}" width="{_attr(width)}" height="{_attr(height)}" fill="lightgray" stroke="gray" stroke-width="1"/>
+        <line x1="{_attr(x)}" y1="{_attr(y)}" x2="{int(x)+int(width)}" y2="{int(y)+int(height)}" stroke="gray" stroke-width="1"/>
+        <line x1="{_attr(x)}" y1="{int(y)+int(height)}" x2="{int(x)+int(width)}" y2="{_attr(y)}" stroke="gray" stroke-width="1"/>
     </g>
     '''
 
