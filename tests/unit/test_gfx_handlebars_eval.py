@@ -82,3 +82,14 @@ def test_string_variables_are_substituted_verbatim():
 def test_invalid_arithmetic_is_left_as_literal_text():
     xml = '<rect left="{1/0}" top="{Calc(1, 2)}" />'
     assert parse_handlebars(xml) == xml
+
+
+@pytest.mark.parametrize("payload", [
+    "{" + "*".join(["99999999"] * 60) + "}",
+    "{Calc(int(1e300) * int(1e300))}",
+    "{1e999}",
+    "{Max(1e308 * 10, 1)}",
+])
+def test_oversized_intermediate_values_are_rejected(payload):
+    xml = f'<rect left="{payload}" />'
+    assert parse_handlebars(xml) == xml

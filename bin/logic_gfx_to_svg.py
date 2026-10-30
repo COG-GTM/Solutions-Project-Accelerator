@@ -38,10 +38,17 @@ _BUILTIN_EXPRESSION_FUNCTIONS = {
 }
 
 _MAX_EXPRESSION_LENGTH = 512
+_MAX_EXPRESSION_MAGNITUDE = 1e15
 
 
 def _is_number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _bounded(value):
+    if not _is_number(value) or not abs(value) <= _MAX_EXPRESSION_MAGNITUDE:
+        raise ValueError(f"Expression value out of range: {value!r}")
+    return value
 
 
 def _to_number(value):
@@ -64,7 +71,8 @@ def evaluate_arithmetic(expr, variables=None, functions=None, replace_unknown_va
     Only numeric constants, ``+ - * / // %``, unary ``+``/``-``, names bound in
     ``variables`` (unknown names are 0 when ``replace_unknown_vars`` is true) and calls
     to names in ``functions`` or the abs/round/max/min/int/float allowlist are accepted.
-    Anything else (attributes, subscripts, strings, non-ASCII text, ...) raises ``ValueError``.
+    Anything else (attributes, subscripts, strings, non-ASCII text, ...) or any intermediate
+    value beyond +/-1e15 (or NaN) raises ``ValueError``.
     """
     variables = variables or {}
     functions = functions or {}
@@ -74,6 +82,9 @@ def evaluate_arithmetic(expr, variables=None, functions=None, replace_unknown_va
     callables = {**_BUILTIN_EXPRESSION_FUNCTIONS, **functions}
 
     def walk(node):
+        return _bounded(evaluate_node(node))
+
+    def evaluate_node(node):
         if isinstance(node, ast.Constant):
             if _is_number(node.value):
                 return node.value
