@@ -3,15 +3,16 @@ import logging
 import shutil
 from contextlib import ExitStack
 from PIL import Image
-import cairosvg
 import cv2
 import numpy as np
 try:
     from bin.logic_logger import handle_exception_with_messagebox
     from bin.logic_pdf_render import page_count, render_page
+    from bin.logic_svg_safety import render_svg_to_png
 except:
     from logic_logger import handle_exception_with_messagebox
     from logic_pdf_render import page_count, render_page
+    from logic_svg_safety import render_svg_to_png
 import uuid
 import os
 from shutil import copy
@@ -402,7 +403,7 @@ class Project_File_Manager():
         :return: The opened image.
         :rtype: PIL.Image.Image
         
-        This function checks the file extension of the given path. If the extension is '.svg', it converts the SVG image to PNG using the cairosvg library and then opens the converted image using the Pillow library. If the extension is not '.svg', it directly opens the image using the Pillow library.
+        This function checks the file extension of the given path. If the extension is '.svg', it rasterises the SVG offline with a capped size (see ``bin.logic_svg_safety``) and then opens the converted image using the Pillow library. If the extension is not '.svg', it directly opens the image using the Pillow library.
         
         Example:
             >>> open_pillow_image('/path/to/image.png')
@@ -410,7 +411,7 @@ class Project_File_Manager():
         """
         _,extension = os.path.splitext(path)
         if extension.lower() == '.svg':
-            image_data = cairosvg.svg2png(path)
+            image_data = render_svg_to_png(path)
             image = Image.open(io.BytesIO(image_data))
             return image
         else:
