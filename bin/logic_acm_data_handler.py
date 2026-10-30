@@ -17,12 +17,16 @@ try:
     from bin.logic_acm_db_commands import create_line_sql_command, create_image_sql_command, create_page_link_sql_command, create_subobject, write_parameter_value_and_reftype_sql_command
     from bin.logic_acm_db_commands import get_all_objects_with_acm_filter, get_all_subobjects_with_acm_filter, subobject_subparameter_value_template, write_subparameter_value_and_reftype_sql_command
     from bin.logic_acm_db_commands import get_display_objects_sql_command, get_displays_sql_command, get_display_sql_command, get_display_object_sql_command, delete_subobject_sql_command
+    from bin.logic_acm_db_commands import bind_params, parameterize_acm_filter, render_name_template, to_db_id
+    from bin.logic_acm_db_commands import (create_display_sql_command_params, create_image_sql_command_params, create_line_sql_command_params, create_page_link_sql_command_params, create_subobject_params, delete_subobject_sql_command_params, get_all_objects_with_acm_filter_params, get_all_subobjects_with_acm_filter_params, get_display_object_sql_command_params, get_display_objects_sql_command_params, get_display_sql_command_params, get_displays_sql_command_params, position_control_module_sql_command_params, subobject_subparameter_value_template_params, write_parameter_value_and_reftype_sql_command_params, write_subparameter_value_and_reftype_sql_command_params)
 except:
     from logic_sql_database import db_connector, non_commit_db_connector
     from logic_acm_db_commands import create_display_sql_command, position_control_module_sql_command, write_parameter_value_sql_command, write_subparameter_value_sql_command
     from logic_acm_db_commands import create_line_sql_command, create_image_sql_command, create_page_link_sql_command, create_subobject, write_parameter_value_and_reftype_sql_command
     from logic_acm_db_commands import get_all_objects_with_acm_filter, get_all_subobjects_with_acm_filter, subobject_subparameter_value_template, write_subparameter_value_and_reftype_sql_command
     from logic_acm_db_commands import get_display_objects_sql_command, get_displays_sql_command, get_display_sql_command, get_display_object_sql_command, delete_subobject_sql_command
+    from logic_acm_db_commands import bind_params, parameterize_acm_filter, render_name_template, to_db_id
+    from logic_acm_db_commands import (create_display_sql_command_params, create_image_sql_command_params, create_line_sql_command_params, create_page_link_sql_command_params, create_subobject_params, delete_subobject_sql_command_params, get_all_objects_with_acm_filter_params, get_all_subobjects_with_acm_filter_params, get_display_object_sql_command_params, get_display_objects_sql_command_params, get_display_sql_command_params, get_displays_sql_command_params, position_control_module_sql_command_params, subobject_subparameter_value_template_params, write_parameter_value_and_reftype_sql_command_params, write_subparameter_value_and_reftype_sql_command_params)
 
 
 # SPA-generated object names differ by a single character (UX00201 vs UX00202),
@@ -106,6 +110,13 @@ class ACM_Data_Handler():
         This function sets the project ID and updates the objects filter. It also sets the __is_linked attribute to True.
         """
         if project_id:
+            try:
+                project_id = to_db_id(project_id, 'project_id')
+            except ValueError:
+                logging.error('Ignoring invalid ACM project id: %r', project_id)
+                if self.__project_missing_callback:
+                    self.__project_missing_callback()
+                return
             self.__project_id = project_id
             self.set_objects_filter()
             self.__is_linked = True 
@@ -173,8 +184,8 @@ class ACM_Data_Handler():
         :return: True if the project exists, False otherwise.
         :rtype: bool
         """
-        query = 'SELECT COUNT(*) FROM Projects WHERE ProjectID={}'.format(self.__project_id)
-        count = pd.read_sql_query(query, self.__engine).iloc[0, 0]
+        query = 'SELECT COUNT(*) FROM Projects WHERE ProjectID=?'
+        count = pd.read_sql_query(query, self.__engine, params=(to_db_id(self.__project_id, 'project_id'),)).iloc[0, 0]
         return count > 0
     
 
@@ -202,8 +213,8 @@ class ACM_Data_Handler():
         Retrieves all registered libraries from the database by executing a SQL query to retrieve all libraries from the 'RegisteredLibraries' table. Returns a DataFrame containing all registered libraries.
         """
 
-        query = "SELECT * FROM RegisteredLibraries where LibraryID='{}'".format(library_id)
-        return pd.read_sql_query(query,self.__engine,index_col='LibraryID')
+        query = 'SELECT * FROM RegisteredLibraries where LibraryID=?'
+        return pd.read_sql_query(query,self.__engine,params=(str(library_id),),index_col='LibraryID')
     
 
     def get_all_project_libraries(self):
@@ -221,8 +232,8 @@ class ACM_Data_Handler():
         Retrieves all libraries associated with a specific project by executing a SQL query to retrieve all libraries from the 'ProjectLibraries' table where the ProjectID matches the given project_id. Returns a DataFrame containing all libraries associated with the project.
         """
 
-        query = 'SELECT DISTINCT LibraryID,CatalogNumber,LibraryType FROM Objects WHERE ProjectID={}'.format(self.__project_id)
-        return pd.read_sql_query(query,self.__engine,index_col='LibraryID')
+        query = 'SELECT DISTINCT LibraryID,CatalogNumber,LibraryType FROM Objects WHERE ProjectID=?'
+        return pd.read_sql_query(query,self.__engine,params=(to_db_id(self.__project_id, 'project_id'),),index_col='LibraryID')
     
 
     def get_all_objects_in_project(self, force_update=False) -> pd.DataFrame:
@@ -237,8 +248,8 @@ class ACM_Data_Handler():
 
         if self.__project_id and (force_update or self.__objects_df.empty 
                 or self.__previous_project_id != self.__project_id):
-            query = 'SELECT * FROM Objects WHERE ProjectID={}'.format(self.__project_id)
-            self.__all_objects_df = pd.read_sql_query(query,self.__engine,index_col='ObjectID')
+            query = 'SELECT * FROM Objects WHERE ProjectID=?'
+            self.__all_objects_df = pd.read_sql_query(query,self.__engine,params=(to_db_id(self.__project_id, 'project_id'),),index_col='ObjectID')
             if self.__all_objects_df['ControllerID'].first_valid_index() is None:
                 return self.__objects_df
                 
@@ -254,9 +265,9 @@ class ACM_Data_Handler():
                     ",Objects.Lock,Objects.MarkForDeletion FROM Objects inner join Parameters "+
                     "on Objects.ObjectID  = Parameters.ObjectID "+
                     "where Objects.CatalogNumber != 'Image' and Objects.CatalogNumber != 'PageLink' "+
-                    "and Objects.ProjectID={}".format(self.__project_id)+
+                    "and Objects.ProjectID=? "+
                     "and Objects.ParentObjectID > 0 and Objects.ControllerID IS NOT NULL")
-            self.__objects_df = pd.read_sql_query(query,self.__engine,index_col='ObjectID')
+            self.__objects_df = pd.read_sql_query(query,self.__engine,params=(to_db_id(self.__project_id, 'project_id'),),index_col='ObjectID')
         return self.__objects_df
     
 
@@ -368,8 +379,8 @@ class ACM_Data_Handler():
                 return
         except Exception:
             pass
-        query = 'SELECT * FROM Objects WHERE ProjectID={}'.format(self.__project_id)
-        self.__all_objects_df = pd.read_sql_query(query, self.__engine, index_col='ObjectID')
+        query = 'SELECT * FROM Objects WHERE ProjectID=?'
+        self.__all_objects_df = pd.read_sql_query(query, self.__engine, params=(to_db_id(self.__project_id, 'project_id'),), index_col='ObjectID')
 
     def get_object_name(self, object_id:int):
         """
@@ -543,8 +554,8 @@ class ACM_Data_Handler():
             >>> get_subobject(123)
             DataFrame with subobject data
         """
-        query = 'SELECT * FROM SubObjects WHERE SubObjectID={}'.format(subobject_id)
-        return pd.read_sql_query(query,self.__engine,index_col='SubObjectID')
+        query = 'SELECT * FROM SubObjects WHERE SubObjectID=?'
+        return pd.read_sql_query(query,self.__engine,params=(to_db_id(subobject_id, 'subobject_id'),),index_col='SubObjectID')
     
 
     def get_object_id_by_spa_id(self, spa_id):
@@ -562,8 +573,8 @@ class ACM_Data_Handler():
             >>> get_object_id_by_spa_id('spa123')
             'object_id'
         """
-        query = "SELECT * FROM Parameters WHERE Name='SolutionsProjectAcceleratorID' and Value='{}'".format(spa_id)
-        return pd.read_sql_query(query,self.__engine,index_col='ObjectID')
+        query = "SELECT * FROM Parameters WHERE Name='SolutionsProjectAcceleratorID' and Value=?"
+        return pd.read_sql_query(query,self.__engine,params=(str(spa_id),),index_col='ObjectID')
     
 
     def get_raw_object(self, object_id):
@@ -579,8 +590,8 @@ class ACM_Data_Handler():
             >>> get_raw_object(123)
             DataFrame with raw object data
         """
-        query = 'SELECT * FROM Objects WHERE ObjectID={}'.format(object_id)
-        return pd.read_sql_query(query,self.__engine,index_col='ObjectID')
+        query = 'SELECT * FROM Objects WHERE ObjectID=?'
+        return pd.read_sql_query(query,self.__engine,params=(to_db_id(object_id, 'object_id'),),index_col='ObjectID')
  
     
 
@@ -602,8 +613,8 @@ class ACM_Data_Handler():
             >>> get_subobject_id('subobject_name', 123)
             'subobject_id'
         """
-        query = "SELECT * FROM SubObjects WHERE Name='{}' and ParentObjectID={}".format(subobject_name, object_id)
-        subobjects_df = pd.read_sql_query(query,self.__engine,index_col='SubObjectID')
+        query = 'SELECT * FROM SubObjects WHERE Name=? and ParentObjectID=?'
+        subobjects_df = pd.read_sql_query(query,self.__engine,params=(str(subobject_name), to_db_id(object_id, 'object_id')),index_col='SubObjectID')
     
         if subobjects_df.empty:
             return ''
@@ -768,10 +779,12 @@ class ACM_Data_Handler():
         if connection is None:
             connection = self.__engine
         
-        query = 'SELECT * FROM SubObjects WHERE ParentObjectID={}'.format(object_id)
+        query = 'SELECT * FROM SubObjects WHERE ParentObjectID=?'
+        params = [to_db_id(object_id, 'object_id')]
         if name_type:
-            query = query + " and Type='{}'".format(name_type)
-        return pd.read_sql_query(query, connection, index_col='SubObjectID')
+            query = query + ' and Type=?'
+            params.append(str(name_type))
+        return pd.read_sql_query(query, connection, params=tuple(params), index_col='SubObjectID')
 
 
     def get_subobject_in_object_with_name(self, object_id, subobject_name, name_type=None, connection=None) -> pd.DataFrame:
@@ -795,10 +808,12 @@ class ACM_Data_Handler():
         if connection is None:
             connection = self.__engine
         
-        query = "SELECT * FROM SubObjects WHERE ParentObjectID={} and Name='{}'".format(object_id, subobject_name)
+        query = 'SELECT * FROM SubObjects WHERE ParentObjectID=? and Name=?'
+        params = [to_db_id(object_id, 'object_id'), str(subobject_name)]
         if name_type:
-            query = query + " and Type='{}'".format(name_type)
-        return pd.read_sql_query(query, connection, index_col='SubObjectID')
+            query = query + ' and Type=?'
+            params.append(str(name_type))
+        return pd.read_sql_query(query, connection, params=tuple(params), index_col='SubObjectID')
 
     
     def get_all_parameters_in_object(self, object_id, name_type=None):
@@ -819,10 +834,12 @@ class ACM_Data_Handler():
             DataFrame(...)
         """
 
-        query = 'SELECT * FROM Parameters WHERE ObjectID={}'.format(object_id)
+        query = 'SELECT * FROM Parameters WHERE ObjectID=?'
+        params = [to_db_id(object_id, 'object_id')]
         if name_type:
-            query = query + " and Name='{}'".format(name_type)
-        return pd.read_sql_query(query,self.__engine,index_col='ParameterID')
+            query = query + ' and Name=?'
+            params.append(str(name_type))
+        return pd.read_sql_query(query,self.__engine,params=tuple(params),index_col='ParameterID')
 
 
 
@@ -845,8 +862,8 @@ class ACM_Data_Handler():
             {'param1': 'value1', 'param2': 'value2'}
         """
            
-        query = "SELECT * FROM Parameters WHERE ObjectID={} and Name='{}'".format(object_id,parameter_name)
-        parameters_dict = pd.read_sql_query(query,self.__engine,index_col='ParameterID').to_dict()
+        query = 'SELECT * FROM Parameters WHERE ObjectID=? and Name=?'
+        parameters_dict = pd.read_sql_query(query,self.__engine,params=(to_db_id(object_id, 'object_id'), str(parameter_name)),index_col='ParameterID').to_dict()
 
         return list(parameters_dict['Value'].values())[0] if 'Value' in parameters_dict else None
     
@@ -872,10 +889,12 @@ class ACM_Data_Handler():
         if connection is None:
             connection = self.__engine
 
-        query = 'SELECT * FROM SubParameters WHERE SubObjectID={}'.format(subobject_id)
+        query = 'SELECT * FROM SubParameters WHERE SubObjectID=?'
+        params = [to_db_id(subobject_id, 'subobject_id')]
         if name_type:
-            query = query + " and Name='{}'".format(name_type)
-        return pd.read_sql_query(query, connection, index_col='SubParameterID')
+            query = query + ' and Name=?'
+            params.append(str(name_type))
+        return pd.read_sql_query(query, connection, params=tuple(params), index_col='SubParameterID')
 
 
     def get_all_objects_with_acm_filter(self, filter=''):
@@ -894,14 +913,15 @@ class ACM_Data_Handler():
             <pandas DataFrame object>
         """
 
-        if filter:
-            filter = 'and '+filter
+        try:
+            filter_sql, filter_params = parameterize_acm_filter(filter)
+        except ValueError as error:
+            logging.error('Rejected ACM library filter: %s', error)
+            return pd.DataFrame()
 
-        query = get_all_objects_with_acm_filter.format(
-                                                        project_id=self.__project_id,
-                                                        filter=filter
-                                                        )
-        filtered_objects_df = pd.read_sql_query(query,self.__engine,index_col='ObjectID')
+        query = get_all_objects_with_acm_filter.format(filter=filter_sql)
+        params = bind_params(get_all_objects_with_acm_filter_params, project_id=self.__project_id) + filter_params
+        filtered_objects_df = pd.read_sql_query(query,self.__engine,params=params,index_col='ObjectID')
 
         return filtered_objects_df
 
@@ -922,14 +942,15 @@ class ACM_Data_Handler():
             DataFrame with filtered subobjects
         """
 
-        if filter:
-            filter = 'and '+filter
+        try:
+            filter_sql, filter_params = parameterize_acm_filter(filter)
+        except ValueError as error:
+            logging.error('Rejected ACM library filter: %s', error)
+            return pd.DataFrame()
 
-        query = get_all_subobjects_with_acm_filter.format(
-                                                        project_id=self.__project_id,
-                                                        filter=filter
-                                                        )
-        filtered_subobjects_df = pd.read_sql_query(query,self.__engine,index_col='SubObjectID')
+        query = get_all_subobjects_with_acm_filter.format(filter=filter_sql)
+        params = bind_params(get_all_subobjects_with_acm_filter_params, project_id=self.__project_id) + filter_params
+        filtered_subobjects_df = pd.read_sql_query(query,self.__engine,params=params,index_col='SubObjectID')
 
         return filtered_subobjects_df
 
@@ -944,8 +965,8 @@ class ACM_Data_Handler():
         Retrieves the FactoryTalk View SE ID from the database by executing a SQL query to retrieve the object with the CatalogNumber 'FTViewSE'.
         """
         if self.__project_id:
-            query = "SELECT * FROM Objects WHERE CatalogNumber='FTViewSE' and ProjectID={}".format(self.__project_id)
-            ftv_objects_df = pd.read_sql_query(query,self.__engine,index_col='ObjectID')
+            query = "SELECT * FROM Objects WHERE CatalogNumber='FTViewSE' and ProjectID=?"
+            ftv_objects_df = pd.read_sql_query(query,self.__engine,params=(to_db_id(self.__project_id, 'project_id'),),index_col='ObjectID')
 
         if ftv_objects_df.empty:
             return ''
@@ -980,8 +1001,8 @@ class ACM_Data_Handler():
                 [ACM].[dbo].[Objects] o
             INNER JOIN 
                 [ACM].[dbo].[RegisteredLibraries] l
-                ON o.LibraryID = l.LibraryID WHERE l.Category='FTAE' and o.LibraryType='HMI' and o.ProjectID={}'''.format(self.__project_id)
-            ftv_objects_df = pd.read_sql_query(query,self.__engine,index_col='ObjectID')
+                ON o.LibraryID = l.LibraryID WHERE l.Category='FTAE' and o.LibraryType='HMI' and o.ProjectID=?'''
+            ftv_objects_df = pd.read_sql_query(query,self.__engine,params=(to_db_id(self.__project_id, 'project_id'),),index_col='ObjectID')
 
         if ftv_objects_df.empty:
             return ''
@@ -999,8 +1020,8 @@ class ACM_Data_Handler():
 
         Check if a registered library exists in the database by executing a SQL query to retrieve the library with the given ID.
         """
-        query = "SELECT * FROM RegisteredLibraries WHERE LibraryID='{}'".format(library_id)
-        df = pd.read_sql_query(query,self.__engine,index_col='LibraryID')
+        query = 'SELECT * FROM RegisteredLibraries WHERE LibraryID=?'
+        df = pd.read_sql_query(query,self.__engine,params=(str(library_id),),index_col='LibraryID')
 
         if df.empty:
             return False
@@ -1022,8 +1043,8 @@ class ACM_Data_Handler():
             >>> get_reference_type_number('example')
             1
         """
-        query = "SELECT * FROM ReferenceTypesEnum WHERE Name='{}'".format(type)
-        return pd.read_sql_query(query,self.__engine,index_col='RefType').first_valid_index()
+        query = 'SELECT * FROM ReferenceTypesEnum WHERE Name=?'
+        return pd.read_sql_query(query,self.__engine,params=(str(type),),index_col='RefType').first_valid_index()
 
 
     SQL_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S.000'
@@ -1061,8 +1082,9 @@ class ACM_Data_Handler():
 
             values[subparameter_name] = value
 
-            subparameter_entry = subobject_subparameter_value_template.format(
-                name=subparameter_name
+            subparameter_entry = bind_params(
+                subobject_subparameter_value_template_params
+                ,name=subparameter_name
                 ,data_type=data['DType']
                 ,value=value
                 ,ref_type=ref_type
@@ -1074,10 +1096,12 @@ class ACM_Data_Handler():
             subobject_parameters_sql_values.append(subparameter_entry)
 
         subobject_name_template: str = subobject_data['Name']
-        subobject_name = subobject_name_template.format(**values)
+        subobject_name = render_name_template(subobject_name_template, values)
 
-        subobject_parameters_sql_values_string = ','.join(subobject_parameters_sql_values)
         create_subobject_sql_cmd = create_subobject.format(
+            subparameter_values=','.join([subobject_subparameter_value_template] * len(subobject_parameters_sql_values)))
+        create_subobject_sql_params = bind_params(
+            create_subobject_params,
             subobject_name=subobject_name,
             parent_object_id=object_id,
             subobject_display_name=subobject_data['Type'],
@@ -1085,15 +1109,14 @@ class ACM_Data_Handler():
             date_time=datetime.datetime.now(datetime.timezone.utc).strftime(self.SQL_DATETIME_FORMAT),
             user=os.getlogin(),
             subobject_description='',
-            description_override='0',
-            subparameter_values=subobject_parameters_sql_values_string
-        )
+            description_override=0,
+        ) + tuple(param for entry in subobject_parameters_sql_values for param in entry)
 
         @db_connector(self.__connection_string)
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(create_subobject_sql_cmd)
+                cur.execute(create_subobject_sql_cmd, create_subobject_sql_params)
                 return subobject_name
             except Exception as error:
                 raise ValueError(error)
@@ -1140,8 +1163,9 @@ class ACM_Data_Handler():
 
             values[subparameter_name] = value
 
-            subparameter_entry = subobject_subparameter_value_template.format(
-                name=subparameter_name
+            subparameter_entry = bind_params(
+                subobject_subparameter_value_template_params
+                ,name=subparameter_name
                 ,data_type=data['DType']
                 ,value=value
                 ,ref_type=ref_type
@@ -1153,7 +1177,7 @@ class ACM_Data_Handler():
             subobject_parameters_sql_values.append(subparameter_entry)
 
         subobject_name_template: str = subobject_data['Name']
-        subobject_name = subobject_name_template.format(**values)
+        subobject_name = render_name_template(subobject_name_template, values)
 
         return subobject_name, values
 
@@ -1169,8 +1193,8 @@ class ACM_Data_Handler():
 
         Retrieves the description of a subobject from the database based on the provided subobject ID.
         """
-        query = 'SELECT * FROM SubObjects WHERE SubObjectID={}'.format(subobject_id)
-        subobject_df = pd.read_sql_query(query,self.__engine,index_col='SubObjectID')
+        query = 'SELECT * FROM SubObjects WHERE SubObjectID=?'
+        subobject_df = pd.read_sql_query(query,self.__engine,params=(to_db_id(subobject_id, 'subobject_id'),),index_col='SubObjectID')
 
         if subobject_df.empty:
             return ''
@@ -1190,13 +1214,14 @@ class ACM_Data_Handler():
 
         Sets the description of a subobject in the database based on the provided subobject ID.
         """
-        query = "UPDATE SubObjects SET Description='{}' WHERE SubObjectID={}".format(description, subobject_id)
+        sql = 'UPDATE SubObjects SET Description=? WHERE SubObjectID=?'
+        params = ('' if description is None else str(description), to_db_id(subobject_id, 'subobject_id'))
 
         @db_connector(self.__connection_string)
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(query)
+                cur.execute(sql, params)
             except Exception as error:
                 raise ValueError(error)
 
@@ -1269,15 +1294,13 @@ class ACM_Data_Handler():
             >>> create_new_hmi_display_in_acm('Display1', 1234, 800, 600)
             'Result'
         """
-        logging.info('Creating display with display name: '+display_name+' in project: '+self.__project_id+'.')
+        logging.info('Creating display with display name: '+display_name+' in project: '+str(self.__project_id)+'.')
 
         @db_connector(self.__connection_string)
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(
-                    create_display_sql_command
-                    .format(display_name=display_name,
+                cur.execute(create_display_sql_command, bind_params(create_display_sql_command_params, display_name=display_name,
                             width=width,
                             height=height,
                             factory_talk_view_se_id=factory_talk_view_se_id,
@@ -1313,7 +1336,7 @@ class ACM_Data_Handler():
             'Result'
         """
 
-        logging.info('Creating display with display name: '+display_name+' in project: '+self.__project_id+'.')
+        logging.info('Creating display with display name: '+display_name+' in project: '+str(self.__project_id)+'.')
 
         x1,y1,x2,y2 = rect
 
@@ -1323,9 +1346,7 @@ class ACM_Data_Handler():
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(
-                    create_line_sql_command
-                    .format(display_name=display_name,
+                cur.execute(create_line_sql_command, bind_params(create_line_sql_command_params, display_name=display_name,
                             factory_talk_view_se_id=factory_talk_view_se_id,
                             project_id=self.__project_id,
                             controller_id=self.__controller_id,
@@ -1378,9 +1399,7 @@ class ACM_Data_Handler():
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(
-                    create_image_sql_command
-                    .format(display_name=display_name,
+                cur.execute(create_image_sql_command, bind_params(create_image_sql_command_params, display_name=display_name,
                             factory_talk_view_se_id=factory_talk_view_se_id,
                             project_id=self.__project_id,
                             controller_id=self.__controller_id,
@@ -1443,8 +1462,6 @@ class ACM_Data_Handler():
         if label is None:
             label = navigate_to_display_name.replace('_',' ')
 
-        # The label carries OCR'd drawing text, so double quotes for the raw SQL string below.
-        label = label.replace("'","''")
 
         page_link_name = display_name+'_to_'+name_token+'_'+str(center_x)+'_'+str(center_y)
 
@@ -1453,9 +1470,7 @@ class ACM_Data_Handler():
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(
-                    create_page_link_sql_command
-                    .format(display_name=display_name,
+                cur.execute(create_page_link_sql_command, bind_params(create_page_link_sql_command_params, display_name=display_name,
                             page_link_id=page_link_id,
                             factory_talk_view_se_id=factory_talk_view_se_id,
                             project_id=self.__project_id,
@@ -1510,9 +1525,7 @@ class ACM_Data_Handler():
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(
-                    position_control_module_sql_command
-                    .format(display_name=display_name,
+                cur.execute(position_control_module_sql_command, bind_params(position_control_module_sql_command_params, display_name=display_name,
                             factory_talk_view_se_id=factory_talk_view_se_id,
                             control_module_id=control_module_id,
                             position_x=position_x,
@@ -1547,11 +1560,11 @@ class ACM_Data_Handler():
             >>> get_display_objects('Display1', 1234)
             DataFrame with display objects
         """
-        query = get_display_objects_sql_command.format(
+        query, params = get_display_objects_sql_command, bind_params(get_display_objects_sql_command_params, 
             display_name=display_name,
             factory_talk_view_se_id=factory_talk_view_se_id
         )
-        objects_in_display_df = pd.read_sql_query(query, self.__engine, index_col='ObjectID')
+        objects_in_display_df = pd.read_sql_query(query, self.__engine, params=params, index_col='ObjectID')
         
         return objects_in_display_df
     
@@ -1574,10 +1587,10 @@ class ACM_Data_Handler():
             >>> get_display_object('Display1', 1234, 5678)
             DataFrame with display object information
         """
-        query = get_display_object_sql_command.format(
+        query, params = get_display_object_sql_command, bind_params(get_display_object_sql_command_params, 
             object_id=object_id
         )
-        return pd.read_sql_query(query, self.__engine, index_col='ObjectID').iloc[0]
+        return pd.read_sql_query(query, self.__engine, params=params, index_col='ObjectID').iloc[0]
     
     def get_display(self, display_name, factory_talk_view_se_id):
         """
@@ -1596,11 +1609,11 @@ class ACM_Data_Handler():
             >>> get_display('Display1', 1234)
             DataFrame with display information
         """
-        query = get_display_sql_command.format(
+        query, params = get_display_sql_command, bind_params(get_display_sql_command_params, 
             display_name=display_name,
             factory_talk_view_se_id=factory_talk_view_se_id
         )
-        return pd.read_sql_query(query, self.__engine, index_col='SubObjectID')
+        return pd.read_sql_query(query, self.__engine, params=params, index_col='SubObjectID')
 
     def get_all_displays(self, factory_talk_view_se_id):
         """
@@ -1617,8 +1630,8 @@ class ACM_Data_Handler():
             >>> get_all_displays(1234)
             DataFrame with all displays
         """
-        query = get_displays_sql_command.format(factory_talk_view_se_id=factory_talk_view_se_id) # or something else 
-        return pd.read_sql_query(query, self.__engine, index_col='SubObjectID')
+        query, params = get_displays_sql_command, bind_params(get_displays_sql_command_params, factory_talk_view_se_id=factory_talk_view_se_id) # or something else 
+        return pd.read_sql_query(query, self.__engine, params=params, index_col='SubObjectID')
 
 
     def write_parameter_value(self, value, object_id, parameter, ref_type='1', ref_value=''):
@@ -1652,8 +1665,7 @@ class ACM_Data_Handler():
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(write_parameter_value_and_reftype_sql_command
-                            .format(parameter=parameter,
+                cur.execute(write_parameter_value_and_reftype_sql_command, bind_params(write_parameter_value_and_reftype_sql_command_params, parameter=parameter,
                             object_id=object_id,
                             ref_type=ref_type,
                             ref_value=ref_value,
@@ -1696,8 +1708,7 @@ class ACM_Data_Handler():
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(write_subparameter_value_and_reftype_sql_command
-                            .format(subparameter=subparameter,
+                cur.execute(write_subparameter_value_and_reftype_sql_command, bind_params(write_subparameter_value_and_reftype_sql_command_params, subparameter=subparameter,
                             subobject_id=subobject_id,
                             ref_type=ref_type,
                             ref_value=ref_value,
@@ -1730,7 +1741,7 @@ class ACM_Data_Handler():
         def query(cnn):
             try:
                 cur = cnn.cursor()
-                cur.execute(delete_subobject_sql_command.format(subobject_id=subobject_id))
+                cur.execute(delete_subobject_sql_command, bind_params(delete_subobject_sql_command_params, subobject_id=subobject_id))
                 cnn.commit()
             except Exception as error:
                 raise ValueError(error)

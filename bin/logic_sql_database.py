@@ -68,7 +68,7 @@ class SQL_Database():
             cur = cnn.cursor()
             cur.execute(
                 'SELECT * FROM [{}].[dbo].[Projects]'
-                .format(self.__database)) # or something else 
+                .format(str(self.__database).replace(']', ']]'))) # or something else 
             rows = cur.fetchall()
             return rows
 
