@@ -1,6 +1,8 @@
 import os
 import xml.etree.ElementTree as ET
 
+import defusedxml.ElementTree as DefusedET
+
 class acm_library_parser():
     '''
     A class that parses an ACM library XML file and extracts the library ID, parameters, subobjects, and functions.
@@ -17,7 +19,7 @@ class acm_library_parser():
         None
         """
         self.__xml_path = xml_path 
-        self.__parsed_xml = ET.parse(self.__xml_path)
+        self.__parsed_xml = DefusedET.parse(self.__xml_path)
 
 
     def get_library_ID(self):
@@ -258,7 +260,7 @@ class acm_library_parser():
                 if 'Name' in item.attrib:
 
                     value = item.find('Attributes/Attribute/Value').text if item.find('Attributes/Attribute/Value') is not None else ''
-                    width, height = get_width_and_height(ET.fromstring(value))
+                    width, height = get_width_and_height(DefusedET.fromstring(value))
                     data = {'Name': item.attrib['Name'],
                             'IncludeCondition': item.attrib.get('IncludeCondition', ''),
                             'Value': value,
@@ -309,7 +311,7 @@ def get_object_NIBS(xml_path):
 
     result = {}
 
-    nibs_tree = ET.parse(filename + ".object_nibs")
+    nibs_tree = DefusedET.parse(filename + ".object_nibs")
     nibs_root = nibs_tree.getroot()
 
     for elm in nibs_root:
@@ -331,7 +333,7 @@ def get_subobjects(xml_path):
 
     result = {}
 
-    nibs_tree = ET.parse(filename + ".subobjects")
+    nibs_tree = DefusedET.parse(filename + ".subobjects")
     nibs_root = nibs_tree.getroot()
 
     for elm in nibs_root:
