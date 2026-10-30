@@ -121,6 +121,8 @@ class ACM_Data_Handler():
                 self.__subobjects_df = pd.DataFrame()
                 self.__parameters_df = pd.DataFrame()
                 self.__subparameters_df = pd.DataFrame()
+                self.__df_filtered = pd.DataFrame()
+                self.__post_changes()
                 if self.__project_missing_callback:
                     self.__project_missing_callback()
                 return

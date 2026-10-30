@@ -72,6 +72,10 @@ def handler():
     handler._ACM_Data_Handler__project_id = None
     handler._ACM_Data_Handler__is_linked = False
     handler._ACM_Data_Handler__project_missing_callback = None
+    handler._ACM_Data_Handler__df_filtered = pd.DataFrame()
+    handler._ACM_Data_Handler__filtered = False
+    handler._ACM_Data_Handler__get_objects_in_project_callbacks = []
+    handler._ACM_Data_Handler__get_is_filtered_callbacks = []
     return handler
 
 
@@ -110,10 +114,14 @@ def test_invalid_project_id_unlinks_previous_project(handler, queries, monkeypat
     handler.set_project_id(10)
     assert handler.get_project_id() == 10
 
+    published = []
+    handler.subscribe_to_filtered_objects_df(lambda df, project_id: published.append((df, project_id)))
     handler.set_project_id(INJECTED_PROJECT_ID)
 
     assert handler.get_project_id() is None
     assert handler._ACM_Data_Handler__is_linked is False
+    assert len(published) == 2
+    assert published[-1][0].empty and published[-1][1] is None
 
 
 @pytest.mark.parametrize('acm_filter', [
