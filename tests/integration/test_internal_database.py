@@ -340,3 +340,31 @@ class TestLazyMigrations:
         raw = json.loads((db_dir / "database.json").read_text())
         assert raw.get("rejected_text_links", {}) == {}
         assert list(raw["approved_text_links"].values())[0]["id"] == "dup"
+
+
+class TestImportedLinkedTextRegexes:
+    """A shared project archive carries database.json verbatim; its link strings are untrusted."""
+
+    def test_malicious_regex_row_is_rejected_without_executing(self, tmp_project_root):
+        from bin.logic_linked_texts import LinkedText, LinkedTextDecodeError
+
+        marker = tmp_project_root / "pwned"
+        payload = "__import__('pathlib').Path(%r).write_text('x')" % str(marker)
+        row = {"id": "evil", "text_relationship": "in_line", "template_id": "t", "parameters": {},
+               "tagname": {"text": "TIC", "text_type": "object", "object_type": None, "linked": True,
+                           "given_text": "None", "links": payload, "reftype": None,
+                           "link_type": "text", "axis": 0}}
+        db_dir = tmp_project_root / "projects" / PROJECT / "database"
+        db_dir.mkdir(parents=True)
+        (db_dir / "database.json").write_text(json.dumps({"linked_text_regexes": {"1": row}}))
+
+        database = Database(PROJECT)
+        try:
+            rows = database.get_all_linked_text_regexes()
+        finally:
+            database.close_db()
+
+        assert rows and rows[0]["id"] == "evil"
+        with pytest.raises(LinkedTextDecodeError):
+            LinkedText.from_dict(rows[0]["tagname"])
+        assert not marker.exists()
