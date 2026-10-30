@@ -48,6 +48,22 @@ class TestExpressions:
         assert evaluate_acm_expression("{Abs({X1}-{X2})} < {Width}", values) is True
         assert evaluate_acm_expression("Round(2.6) + Int(3.9) + Length('abc')", {}) == 9
 
+    def test_braced_group_without_placeholders(self):
+        assert evaluate_acm_expression("{Abs(5)}") == 5
+        assert evaluate_acm_expression("{Abs(-2)} + {N}", {"N": "1"}) == 3
+
+    def test_escaped_quotes_and_backslashes_in_literals(self):
+        assert evaluate_acm_expression("'a\\'b' = 'a\\'b'") is True
+        assert evaluate_acm_expression("'a\\'b'") == "a'b"
+        assert evaluate_acm_expression("'c:\\\\dir'") == "c:\\dir"
+        assert evaluate_acm_expression("'{P}'", {"P": "x\\' + 1 + '"}) == "x\\' + 1 + '"
+
+    def test_oversized_parameter_value_raises(self):
+        with pytest.raises(AcmExpressionError):
+            evaluate_acm_expression("'{P}'", {"P": "a" * 10_000_000})
+        with pytest.raises(AcmExpressionError):
+            evaluate_acm_expression("{P}", {"P": "a" * 10_000_000})
+
     def test_constant_without_placeholders(self):
         assert evaluate_acm_expression("99999999999") == 99999999999
 

@@ -15,6 +15,7 @@ Anything else (attributes, subscripts, lambdas, comprehensions, ...) is rejected
 import ast
 import operator
 import re
+import warnings
 import xml.etree.ElementTree as ET
 
 
@@ -155,8 +156,13 @@ def translate(expression, variables=None):
         placeholder = _PLACEHOLDER.match(expression, i) if ch == "{" else None
         if placeholder:
             name = placeholder.group(1).strip()
+            if name not in variables and "(" in name:
+                placeholder = None
+        if placeholder:
             if name not in variables:
                 raise AcmExpressionError(f"unknown variable {name!r}")
+            if len(str(variables[name])) > MAX_STRING_LENGTH:
+                raise AcmExpressionError(f"value of {name!r} is too long")
             if quote:
                 out.append(_escape_for_literal(variables[name], quote))
             else:
@@ -167,6 +173,10 @@ def translate(expression, variables=None):
             i = placeholder.end()
             continue
         if quote:
+            if ch == "\\" and i + 1 < len(expression) and expression[i + 1] not in "\r\n":
+                out.append(expression[i:i + 2])
+                i += 2
+                continue
             if ch == "\\":
                 out.append("\\\\")
             elif ch == quote:
@@ -191,7 +201,10 @@ def translate(expression, variables=None):
     if quote:
         raise AcmExpressionError("unterminated string literal")
     flush_code()
-    return "".join(out).strip(), bindings
+    source = "".join(out).strip()
+    if len(source) > MAX_EXPRESSION_LENGTH + MAX_STRING_LENGTH:
+        raise AcmExpressionError("expression too long")
+    return source, bindings
 
 
 def _check_tree(tree):
@@ -272,7 +285,9 @@ def evaluate_acm_expression(expression, variables=None):
     if not source:
         raise AcmExpressionError("empty expression")
     try:
-        tree = ast.parse(source, mode="eval")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source, mode="eval")
     except (SyntaxError, ValueError, RecursionError) as error:
         raise AcmExpressionError(f"invalid expression: {error}") from None
     _check_tree(tree)
