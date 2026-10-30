@@ -57,6 +57,19 @@ class TestRedaction:
         assert stripped == BASE + 'UID=a;Encrypt=yes;'
         assert 'first' not in redact_connection_string(BASE + 'PWD=first;UID=a;pwd=second;')
 
+    @pytest.mark.parametrize('connection_string', [
+        BASE + 'UID=alice;PWD=real;APP={audit;PWD=telemetry};',
+        BASE + 'APP={audit;PWD=telemetry};UID=alice;PWD=real;',
+    ])
+    def test_password_text_inside_another_braced_value_is_kept(self, connection_string):
+        stripped, password = split_password(connection_string)
+        assert password == 'real'
+        assert 'APP={audit;PWD=telemetry};' in stripped
+        assert 'real' not in stripped
+
+    def test_login_text_inside_braced_value_is_not_a_login(self):
+        assert not uses_sql_login(BASE + 'APP={x;UID=bob};Trusted_Connection=yes;')
+
     def test_string_without_password_is_unchanged(self):
         connection_string = BASE + 'Trusted_Connection=yes;'
         assert redact_connection_string(connection_string) == connection_string

@@ -7,11 +7,45 @@ ODBC connection strings are ``KEY=value;`` pairs. A value that contains ``;``,
 ``}`` doubled. These helpers only touch the ``PWD`` / ``Password`` attribute.
 """
 
-import re
+_PASSWORD_KEYS = ('pwd', 'password')
+_LOGIN_KEYS = ('uid', 'user id')
 
-_PASSWORD_ATTRIBUTE = re.compile(
-    r'(?i)(?:^|(?<=;))\s*(?:PWD|Password)\s*=\s*(\{(?:[^}]|\}\})*\}|[^;]*);?')
-_LOGIN_ATTRIBUTE = re.compile(r'(?i)(?:^|(?<=;))\s*(?:UID|User ID)\s*=')
+
+def _attributes(connection_string):
+    """
+    Yield ``(key, segment, value)`` for each top-level ``KEY=value;`` pair.
+
+    ``key`` is lower-cased (``None`` for a segment without ``=``), ``segment`` is the
+    raw text including its trailing ``;`` and ``value`` is the raw (still braced) value.
+    Semicolons inside ``{...}`` values do not split attributes.
+    """
+    text, i, n = connection_string, 0, len(connection_string)
+    while i < n:
+        equals, semicolon = text.find('=', i), text.find(';', i)
+        if equals == -1 or -1 < semicolon < equals:
+            end = n if semicolon == -1 else semicolon + 1
+            yield None, text[i:end], ''
+            i = end
+            continue
+        j = equals + 1
+        while j < n and text[j].isspace():
+            j += 1
+        value_end = j
+        if j < n and text[j] == '{':
+            value_end = j + 1
+            while value_end < n:
+                if text[value_end] == '}':
+                    if text.startswith('}}', value_end):
+                        value_end += 2
+                        continue
+                    value_end += 1
+                    break
+                value_end += 1
+        semicolon = text.find(';', value_end)
+        end = n if semicolon == -1 else semicolon + 1
+        value = text[j:value_end] if value_end > j else text[j:end].rstrip(';')
+        yield text[i:equals].strip().lower(), text[i:end], value
+        i = end
 
 
 def quote_odbc_value(value):
@@ -29,19 +63,19 @@ def _unquote_odbc_value(value):
 
 def split_password(connection_string):
     """
-    Remove every password attribute from ``connection_string``.
+    Remove every top-level password attribute from ``connection_string``.
 
     :return: ``(connection_string_without_password, password)``; ``password``
         is the last value (the one ODBC uses), or ``None`` when the string has no
         ``PWD`` / ``Password`` attribute.
     """
-    stripped, password = connection_string or '', None
-    match = _PASSWORD_ATTRIBUTE.search(stripped)
-    while match:
-        password = _unquote_odbc_value(match.group(1).strip())
-        stripped = stripped[:match.start()] + stripped[match.end():]
-        match = _PASSWORD_ATTRIBUTE.search(stripped)
-    return stripped, password
+    kept, password = [], None
+    for key, segment, value in _attributes(connection_string or ''):
+        if key in _PASSWORD_KEYS:
+            password = _unquote_odbc_value(value.strip())
+        else:
+            kept.append(segment)
+    return ''.join(kept), password
 
 
 def add_password(connection_string, password):
@@ -53,7 +87,7 @@ def add_password(connection_string, password):
 
 def uses_sql_login(connection_string):
     """True when the connection string authenticates with a SQL Server login."""
-    return bool(_LOGIN_ATTRIBUTE.search(connection_string or ''))
+    return any(key in _LOGIN_KEYS for key, _, _ in _attributes(connection_string or ''))
 
 
 def redact_connection_string(connection_string):
