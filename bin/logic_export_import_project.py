@@ -136,7 +136,7 @@ def import_project(zip_file_path, project_name, replace=False):
     :type zip_file_path: str
     :param project_name: The project name; must be a plain folder name (see logic_project_paths).
     :type project_name: str
-    :param replace: Replace the existing project of the same name (compared case-insensitively).
+    :param replace: Replace the existing project this name resolves to (see find_existing_project).
     :type replace: bool
     :return: True if the import was successful.
     :rtype: bool

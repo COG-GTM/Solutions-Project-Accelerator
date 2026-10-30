@@ -77,14 +77,22 @@ def project_dir(name):
 
 def find_existing_project(name):
     """
-    Name of the existing project folder that ``name`` refers to, matched case-insensitively
-    (project names are case-insensitive on Windows), or None.
+    Name of the existing project folder that ``name`` resolves to, or None.
+
+    Follows the filesystem: on a case-insensitive one (Windows) ``pump`` finds an existing ``Pump``;
+    on a case-sensitive one they are separate projects.
     """
+    if not is_valid_project_name(name):
+        return None
     root = projects_root()
-    if not os.path.isdir(root):
+    path = os.path.join(root, name)
+    if not os.path.lexists(path):
         return None
     entries = [entry for entry in os.listdir(root) if not entry.startswith('.')]
     if name in entries:
         return name
-    matches = sorted(entry for entry in entries if entry.lower() == name.lower())
-    return matches[0] if matches else None
+    target = os.lstat(path)
+    for entry in entries:
+        if os.path.samestat(os.lstat(os.path.join(root, entry)), target):
+            return entry
+    return name

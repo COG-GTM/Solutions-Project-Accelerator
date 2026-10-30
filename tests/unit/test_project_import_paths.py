@@ -205,9 +205,51 @@ def test_symlinked_project_folder_is_rejected(workspace):
     assert os.listdir(outside) == []
 
 
-def test_case_only_replacement_replaces_existing_folder(workspace):
+def test_case_variant_is_a_separate_project_on_case_sensitive_fs(workspace):
+    aip.import_project(make_aip(workspace / 'v1.aip', 'Pump', {'old.txt': b'old'}), 'Pump')
+    if os.path.exists(os.path.join('projects', 'pump')):
+        pytest.skip('case-insensitive filesystem')
+
+    assert find_existing_project('pump') is None
+    aip.import_project(make_aip(workspace / 'v2.aip', 'pump', {'new.txt': b'new'}), 'pump')
+
+    assert projects_entries(workspace) == ['Pump', 'pump']
+    assert (workspace / 'app' / 'projects' / 'Pump' / 'old.txt').read_bytes() == b'old'
+
+
+@pytest.fixture
+def case_insensitive_fs(monkeypatch):
+    """Make lexists/lstat resolve names under ./projects case-insensitively, like Windows."""
+    real_lstat = os.lstat
+
+    def fold(path):
+        folder, name = os.path.split(os.path.abspath(path))
+        if os.path.basename(folder) == 'projects' and os.path.isdir(folder):
+            entries = os.listdir(folder)
+            if name not in entries:
+                for entry in entries:
+                    if entry.lower() == name.lower():
+                        return os.path.join(folder, entry)
+        return path
+
+    def lstat(path, *args, **kwargs):
+        return real_lstat(fold(path), *args, **kwargs)
+
+    def lexists(path):
+        try:
+            lstat(path)
+        except OSError:
+            return False
+        return True
+
+    monkeypatch.setattr(os, 'lstat', lstat)
+    monkeypatch.setattr(os.path, 'lexists', lexists)
+
+
+def test_case_variant_replaces_existing_folder_on_case_insensitive_fs(workspace, case_insensitive_fs):
     aip.import_project(make_aip(workspace / 'v1.aip', 'Pump', {'old.txt': b'old'}), 'Pump')
 
+    assert find_existing_project('PUMP') == 'Pump'
     with pytest.raises(FileExistsError):
         aip.import_project(make_aip(workspace / 'v2.aip', 'pump'), 'pump')
     aip.import_project(make_aip(workspace / 'v2.aip', 'pump', {'new.txt': b'new'}), 'pump', replace=True)
@@ -216,12 +258,11 @@ def test_case_only_replacement_replaces_existing_folder(workspace):
     assert (workspace / 'app' / 'projects' / 'pump' / 'new.txt').read_bytes() == b'new'
 
 
-def test_find_existing_project_is_case_insensitive(workspace):
+def test_find_existing_project(workspace):
     (workspace / 'app' / 'projects' / 'Pump Skid').mkdir()
     (workspace / 'app' / 'projects' / '.aip-replaced-x').mkdir()
 
     assert find_existing_project('Pump Skid') == 'Pump Skid'
-    assert find_existing_project('PUMP SKID') == 'Pump Skid'
     assert find_existing_project('.aip-replaced-x') is None
     assert find_existing_project('Other') is None
 
