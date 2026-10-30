@@ -7,6 +7,10 @@ import time
 from functools import wraps
 import socket
 from collections import OrderedDict
+try:
+    from bin.logic_connection_string import quote_odbc_value
+except ImportError:
+    from logic_connection_string import quote_odbc_value
 
 
 SQL_BROWSER_DEFAULT_PORT = 1434
@@ -284,7 +288,7 @@ def get_all_databases(server, user='', password='', use_windows_authentication=T
     if use_windows_authentication:
         auth_string = 'Trusted_Connection=yes;'
     else:
-        auth_string = 'UID='+user+';PWD='+password+';'
+        auth_string = 'UID='+user+';PWD='+quote_odbc_value(password)+';'
 
     connection_string =   ('DRIVER={'+sql_drivers[0]+'};'+
                     'SERVER='+server+';'+
@@ -333,12 +337,12 @@ def build_connection_string(server, database, user='', password='', use_windows_
     if use_windows_authentication:
         auth_string = 'Trusted_Connection=yes;'
     else:
-        auth_string = 'UID='+user+';PWD='+password+';'
+        auth_string = 'UID='+user+';PWD='+quote_odbc_value(password)+';'
 
     connection_string =   ('DRIVER={'+get_highest_sql_driver(sql_drivers)+'};'+
                     'SERVER='+server+';'+
                     'DATABASE='+database+';'+auth_string)
-    logging.info('SQL connection string: '+connection_string) 
+    logging.info('SQL connection string built for server %s, database %s', server, database)
     return connection_string
 
 

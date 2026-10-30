@@ -28,6 +28,7 @@ from tkinter.filedialog import askopenfilename
 
 from bin.logic_llm_inference import UnifiedInference
 from bin.logic_secret_store import has_openai_key
+from bin.logic_connection_string import redact_connection_string
 from .gui_menu import Custom_Menu
 from .logic_config import Config
 from .logic_logger import logging, handle_exception
@@ -1107,6 +1108,8 @@ class MainGUI(ttk.Frame):
             self.__set_connection_string()
             if use_windows_authentication or save_password:
                 self.__config.set_connection_string(connection_string)
+            else:
+                self.__config.clear_connection_string()
                
 
         db_conntection_form(callback=callback)
@@ -1135,7 +1138,7 @@ class MainGUI(ttk.Frame):
 
 
     def __set_connection_string(self):
-        logging.info('Setting Sql Connection String: {}'.format(self.__connection_string))
+        logging.info('Setting Sql Connection String: {}'.format(redact_connection_string(self.__connection_string)))
         self.__acm_data_handler = ACM_Data_Handler(self.__connection_string, self.__project_missing)
         if self.tool_frame:
             self.tool_frame.set_data_handler(self.__acm_data_handler)

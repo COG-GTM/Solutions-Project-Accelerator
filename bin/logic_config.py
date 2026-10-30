@@ -5,6 +5,13 @@ try:
     from bin.logic_file_manager import Project_File_Manager
 except Exception as e:
     from logic_file_manager import Project_File_Manager
+try:
+    from bin.logic_connection_string import add_password, split_password, uses_sql_login
+    from bin.logic_secret_store import delete_sql_password, load_sql_password, save_sql_password
+except ImportError:
+    from logic_connection_string import add_password, split_password, uses_sql_login
+    from logic_secret_store import delete_sql_password, load_sql_password, save_sql_password
+import logging
 import os
 import json
 import configparser
@@ -254,11 +261,22 @@ class Config:
             self.__config.add_section(section)
 
     def get_connection_string(self):
-        """ Get connection string """
+        """ Get connection string, with the SQL login password restored from the DPAPI store """
         try:
-            return self.__config[self.__sql][self.__connection_string]
+            stored = self.__config[self.__sql][self.__connection_string]
         except KeyError:  # if the key is not in the dictionary of config
             return ''
+        stripped, legacy_password = split_password(stored)
+        if legacy_password is not None:
+            # Older versions wrote PWD= into config.ini; move it out and rewrite the file.
+            self.set_connection_string(stored)
+            self.save()
+            return stored
+        if uses_sql_login(stripped):
+            password = load_sql_password()
+            if password:
+                return add_password(stripped, password)
+        return stripped
 
     def set_objects_filter(self, filter):
         """ Set main window size """
@@ -305,9 +323,24 @@ class Config:
             return {}
 
     def set_connection_string(self, connection_string):
-        """ Set main window size """
+        """ Set connection string; the password goes to the DPAPI store, never to config.ini """
+        stripped, password = split_password(connection_string)
         self.__check_section(self.__sql)
-        self.__config[self.__sql][self.__connection_string] = connection_string
+        self.__config[self.__sql][self.__connection_string] = stripped
+        if not password:
+            delete_sql_password()
+            return
+        try:
+            save_sql_password(password)
+        except (RuntimeError, OSError) as error:
+            delete_sql_password()
+            logging.warning('SQL Server password was not saved: %s', type(error).__name__)
+
+    def clear_connection_string(self):
+        """ Forget the saved connection string and SQL login password """
+        if self.__config.has_section(self.__sql):
+            self.__config.remove_option(self.__sql, self.__connection_string)
+        delete_sql_password()
 
     def get_win_geometry(self):
         """ Get main window size and position """

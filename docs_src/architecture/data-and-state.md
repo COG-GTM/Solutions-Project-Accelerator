@@ -51,6 +51,14 @@ ACM library versions such as `DEFAULT_ACM_HMI_TEMPLATE`).
     blob separately. `gui_settings.py` only ever shows a placeholder for a key
     that is already stored.
 
+    The ACM SQL Server password is handled the same way: `Config.set_connection_string`
+    keeps only the non-secret part of the connection string in `[SQL]` and writes
+    the `PWD` value to `temp/sql_password.dat` through `logic_secret_store`;
+    `get_connection_string` adds it back in memory. A plaintext `PWD=` left in
+    `config.ini` by an older version is moved out on first read. Log the
+    connection string only through `logic_connection_string.redact_connection_string`,
+    which drops the `PWD` attribute.
+
 ---
 
 ## The project database

@@ -204,17 +204,14 @@ class db_conntection_form:
 
     
     def __server_chosen(self):
-        print(self.__server_sv.get())
         self.__start_get_all_database_thread()
 
 
     def __username_typed(self):
-        print(self.__username_sv.get())
         self.__start_get_all_database_thread()
 
 
     def __password_typed(self):
-        print(self.__password_sv.get())
         self.__start_get_all_database_thread()
 
 

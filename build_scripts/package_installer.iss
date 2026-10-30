@@ -42,8 +42,12 @@ WizardStyle=modern
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[InstallDelete]
+; Logs written by earlier versions could contain the SQL Server password.
+Type: files; Name: "{app}\_internal\temp\logfile.log*"
+
 [Dirs] 
-Name: "{app}\_internal\temp"; Permissions: everyone-full
+Name: "{app}\_internal\temp"; Permissions: users-modify
 Name: "{app}\_internal\projects"; Permissions: everyone-full
 Name: "{app}\acm_libraries"; Permissions: everyone-full
 Name: "{app}\_internal\Ollama"; Permissions: everyone-full
