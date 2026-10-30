@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, Any
 import re
 import ast
+import operator
 from svgpathtools import parse_path
 from svgpathtools.path import transform
 
@@ -17,6 +18,95 @@ class AnchorDirection(str, Enum):
     RIGHT = "right"
     ANY = "any"
     INPUT = "input"
+
+_ARITHMETIC_BINOPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+}
+
+_ARITHMETIC_UNARYOPS = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
+
+_BUILTIN_EXPRESSION_FUNCTIONS = {
+    'abs': abs, 'round': round, 'max': max, 'min': min, 'int': int, 'float': float,
+}
+
+_MAX_EXPRESSION_LENGTH = 512
+_MAX_EXPRESSION_MAGNITUDE = 1e15
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _bounded(value):
+    if not _is_number(value) or not abs(value) <= _MAX_EXPRESSION_MAGNITUDE:
+        raise ValueError(f"Expression value out of range: {value!r}")
+    return value
+
+
+def _to_number(value):
+    if _is_number(value):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isascii():
+            try:
+                return int(text)
+            except ValueError:
+                return float(text)
+    raise ValueError(f"Non-numeric value: {value!r}")
+
+
+def evaluate_arithmetic(expr, variables=None, functions=None, replace_unknown_vars=True):
+    """
+    Evaluate an HMI symbol arithmetic expression such as ``Calc(15 + SymbolHeight*TopIndex)``.
+
+    Only numeric constants, ``+ - * / // %``, unary ``+``/``-``, names bound in
+    ``variables`` (unknown names are 0 when ``replace_unknown_vars`` is true) and calls
+    to names in ``functions`` or the abs/round/max/min/int/float allowlist are accepted.
+    Anything else (attributes, subscripts, strings, non-ASCII text, ...) or any intermediate
+    value beyond +/-1e15 (or NaN) raises ``ValueError``.
+    """
+    variables = variables or {}
+    functions = functions or {}
+    if not isinstance(expr, str) or not expr.isascii() or len(expr) > _MAX_EXPRESSION_LENGTH:
+        raise ValueError("Unsupported expression")
+
+    callables = {**_BUILTIN_EXPRESSION_FUNCTIONS, **functions}
+
+    def walk(node):
+        return _bounded(evaluate_node(node))
+
+    def evaluate_node(node):
+        if isinstance(node, ast.Constant):
+            if _is_number(node.value):
+                return node.value
+        elif isinstance(node, ast.BinOp) and type(node.op) in _ARITHMETIC_BINOPS:
+            return _ARITHMETIC_BINOPS[type(node.op)](walk(node.left), walk(node.right))
+        elif isinstance(node, ast.UnaryOp) and type(node.op) in _ARITHMETIC_UNARYOPS:
+            return _ARITHMETIC_UNARYOPS[type(node.op)](walk(node.operand))
+        elif isinstance(node, ast.Name) and not node.id.startswith('__'):
+            if node.id in variables:
+                return _to_number(variables[node.id])
+            if replace_unknown_vars:
+                return 0
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+              and node.func.id in callables and not node.keywords
+              and not any(isinstance(arg, ast.Starred) for arg in node.args)):
+            result = callables[node.func.id](*[walk(arg) for arg in node.args])
+            if _is_number(result):
+                return result
+        raise ValueError(f"Unsupported expression element: {type(node).__name__}")
+
+    return walk(ast.parse(expr, mode='eval').body)
+
 
 def parse_handlebars(text, variables=None, functions=None, replace_unknown_vars=True) -> str:
     """
@@ -63,50 +153,15 @@ def parse_handlebars(text, variables=None, functions=None, replace_unknown_vars=
         }
     
     def evaluate_expression(expr):
-        """Safely evaluate a mathematical expression with variables and functions."""
-        # Replace function calls
-        for func_name, func in functions.items():
-            if func_name in expr:
-                # Handle function calls with parentheses
-                pattern = rf'{func_name}\s*\((.*?)\)'
-                matches = re.findall(pattern, expr)
-                for match in matches:
-                    try:
-                        # Recursively evaluate the argument
-                        arg_value = evaluate_expression(match)
-                        result = func(arg_value)
-                        expr = expr.replace(f'{func_name}({match})', str(result))
-                    except:
-                        pass
-        
-        # Replace variables (known variables first)
-        for var_name, var_value in variables.items():
-            expr = expr.replace(var_name, str(var_value))
-        
-        # Replace any remaining unknown variables with 0
-        # Look for patterns that look like variable names (letters, numbers, underscores)
-        unknown_vars = re.findall(r'\b[A-Za-z_][A-Za-z0-9_]*\b', expr)
-        for var in unknown_vars:
-            # Skip if it's a number or already processed
-            if replace_unknown_vars and not var.isdigit() and var not in [str(v) for v in variables.values()]:
-                expr = expr.replace(var, '0')
-        
-        # Safely evaluate mathematical expression
+        """Evaluate one handlebar body; return it unchanged when it is not a safe arithmetic expression."""
+        key = expr.strip()
+        if key in variables:
+            return variables[key]
         try:
-            # Use ast.literal_eval for simple expressions, or eval with limited scope for complex ones
-            if any(op in expr for op in ['+', '-', '*', '/', '(', ')']):
-                # Create a safe evaluation environment
-                allowed_names = {
-                    "__builtins__": {},
-                    "abs": abs, "round": round, "max": max, "min": min,
-                    "int": int, "float": float
-                }
-                return eval(expr, allowed_names, {})
-            else:
-                return ast.literal_eval(expr)
-        except:
-            return expr  # Return original if evaluation fails
-    
+            return evaluate_arithmetic(key, variables, functions, replace_unknown_vars)
+        except Exception:
+            return expr
+
 
 
     # Process qualified expressions
