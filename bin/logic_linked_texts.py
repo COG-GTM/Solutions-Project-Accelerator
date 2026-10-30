@@ -11,6 +11,7 @@ from pandas import DataFrame
 
 from bin.logic_acm_data_handler import ACM_Data_Handler
 from bin.logic_internal_database import Database
+from bin import logic_safe_regex as safe_regex
 
 # Page text is a flat character stream with the line breaks stripped, so these
 # glyphs are the only markers left of where one list item ends and the next begins.
@@ -1600,7 +1601,7 @@ class Linked_Texts():
                 
                 self.remove_exact_range_from_indexes(new_linked_text, link.given_text_id, link.given_text_indexes)
             
-            match = re.search(given_text.regex_string,found_cell_texts[indexes_id])
+            match = safe_regex.search(given_text.regex_string,found_cell_texts[indexes_id])
             if not match:
                 if new_linked_text.link_type == LinkType.SELECTOR:
                     raise LinkedTextMatchError('No match found in cell text')
@@ -1649,11 +1650,7 @@ class Linked_Texts():
     
 
     def __get_regex_group(self, original_string, regex_pattern, char_indexes):
-        # Compile the regex pattern
-        pattern = re.compile(regex_pattern)
-        
-        # Find the match in the original string
-        match = pattern.search(original_string)
+        match = safe_regex.search(regex_pattern, original_string)
         
         if not match:
             return None

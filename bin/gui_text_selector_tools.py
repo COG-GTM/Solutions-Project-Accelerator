@@ -34,6 +34,7 @@ import uuid
 import cv2
 from paddleocr import PPStructure
 
+from bin import logic_safe_regex as safe_regex
 from bin.logic_linked_texts import GivenTextLink, LinkedText, TagnameParameterRelationship, TargetTextLink, contains_item_separator
 from bin.logic_llm_inference import UnifiedInference
 from bin.logic_text_document_llm_processors import TextDocumentLLMPreprocessor, TextDocumentLLMPostProcessor, TextDocumentLLMProcessor
@@ -2500,7 +2501,9 @@ class TextSelectorTools(CanvasImage):
             if group is None:
                 raise ValueError('Group not found in regex string')
             
-            match = re.search(given_text.regex_string,found_cell_texts[indexes_id]['text'])
+            match = safe_regex.search(given_text.regex_string,found_cell_texts[indexes_id]['text'])
+            if match is None:
+                raise ValueError('No match found in cell text')
             sub_string = str(match.group(group))
             new_linked_text.given_text[link.given_text_id].key_and_ignore_indexes.remove(link.given_text_indexes)
             match_start = match.span(group)[0] - match.span(0)[0]
@@ -2791,7 +2794,7 @@ class TextSelectorTools(CanvasImage):
         
         given_text = list(linked_text.given_text.values())[0]
         text_in_page_string_without_newlines = self.text_in_page_string.replace('\n','')
-        matches = re.finditer(given_text.regex_string,text_in_page_string_without_newlines)
+        matches = safe_regex.finditer(given_text.regex_string,text_in_page_string_without_newlines)
 
         # Templates saved before the wildcards excluded list separators can still
         # run past the end of an item and swallow the next one.
@@ -3132,11 +3135,7 @@ class TextSelectorTools(CanvasImage):
 
     
     def __get_regex_group(self, original_string, regex_pattern, char_indexes):
-        # Compile the regex pattern
-        pattern = re.compile(regex_pattern)
-        
-        # Find the match in the original string
-        match = pattern.search(original_string)
+        match = safe_regex.search(regex_pattern, original_string)
         
         if not match:
             return None
@@ -4639,6 +4638,10 @@ class TextSelectorTools(CanvasImage):
 
         lines_to_highlight = {}
 
+        if not safe_regex.is_safe_pattern(regex_string):
+            self.__highlight_regex_matches([lines_to_highlight])
+            return
+
         for table in self.tables_in_page:
             if table.col_count != table_shape[0]:
                 continue
@@ -4653,7 +4656,7 @@ class TextSelectorTools(CanvasImage):
                 if text == '':
                     continue
 
-                if re.search(regex_string,text) is None:
+                if safe_regex.search(regex_string,text) is None:
                     continue
 
                 if indexes[0] == np.inf:
@@ -4749,7 +4752,10 @@ class TextSelectorTools(CanvasImage):
         if regex_string is None:
             regex_string = self.__selected_text_regex_string
 
-        return re.findall(f'({regex_string})',self.text_in_page_string)
+        if not safe_regex.is_safe_pattern(regex_string):
+            return []
+
+        return safe_regex.findall(f'({regex_string})',self.text_in_page_string)
         
 
       

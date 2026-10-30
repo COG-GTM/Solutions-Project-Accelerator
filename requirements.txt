@@ -180,6 +180,7 @@ kiwisolver==1.4.5
 fonttools==4.51.0
 contourpy==1.2.1
 pyparsing==3.1.2
+regex==2024.11.6  # timeout-bounded matching of stored linked-text patterns (bin/logic_safe_regex.py)
 greenlet==3.0.3
 typing-extensions>=4.12.2  # torch/openai/pydantic all need >=4.12.2
 
