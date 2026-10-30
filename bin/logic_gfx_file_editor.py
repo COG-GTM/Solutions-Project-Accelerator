@@ -1,4 +1,5 @@
 import copy
+import logging
 from difflib import SequenceMatcher
 import hashlib
 import re
@@ -15,6 +16,7 @@ try:
     from bin.logic_acm_libraries_retrieval import acm_libraries_retrieval, get_library_file_path
     from bin.logic_acm_library_parser import acm_library_parser
     from bin.logic_gfx_to_svg import gfx_to_svg, parse_handlebars, AnchorDirection
+    from bin.logic_safe_expression import UnsafeExpressionError, condition_variable_names, evaluate_include_condition
     from bin.logic_library_anchor_overrides import get_default_store as _get_anchor_override_store
 except ImportError as e:
     from logic_acm_function_handler import extract_handle_bars, process_acm_variable
@@ -22,6 +24,7 @@ except ImportError as e:
     from logic_acm_libraries_retrieval import acm_libraries_retrieval, get_library_file_path
     from logic_acm_library_parser import acm_library_parser
     from logic_gfx_to_svg import gfx_to_svg, parse_handlebars, AnchorDirection
+    from logic_safe_expression import UnsafeExpressionError, condition_variable_names, evaluate_include_condition
     from logic_library_anchor_overrides import get_default_store as _get_anchor_override_store
 
 
@@ -298,25 +301,17 @@ class GfxFileEditor:
                 # Then use the acm_data_handler to get the values of these variables
                 if 'IncludeCondition' in hmi_symbol and hmi_symbol['IncludeCondition']:
                     include_condition = hmi_symbol['IncludeCondition']
-                    # Extract variable names from the condition
-                    pattern = r'\{([^}]+)\}'
-                    variable_names = [match.group(1) for match in re.finditer(pattern, include_condition)]
-                    for var in variable_names:
+                    for var in condition_variable_names(include_condition):
                         if var not in variables:
                             variables[var] = self.acm_data_handler.get_parameter_in_object(element.object_id, var)
-                    
-                    for var_name, value in variables.items():
-                        pattern = r'\{' + re.escape(var_name) + r'\}'
-                        include_condition = re.sub(pattern, str(value), include_condition)
 
-                    # Replace logical operators with Python equivalents
-                    include_condition = include_condition.replace(' AND ', ' and ')
-                    include_condition = include_condition.replace(' OR ', ' or ')
-                    include_condition = include_condition.replace('=', '==')
-                    include_condition = include_condition.replace('Always', 'True')
-
-                    # Evaluate the final expression
-                    if not eval(include_condition):
+                    try:
+                        include_symbol = evaluate_include_condition(include_condition, variables)
+                    except UnsafeExpressionError as e:
+                        logging.warning("Rejected IncludeCondition %r of HMI symbol %r for element %r: %s",
+                                        include_condition, hmi_symbol.get('Name'), element_name, e)
+                        include_symbol = False
+                    if not include_symbol:
                         continue
                 
 
