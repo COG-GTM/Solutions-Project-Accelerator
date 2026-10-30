@@ -8,7 +8,6 @@ import configparser
 import shutil
 import subprocess
 from typing import List
-import cairosvg
 import numpy as np
 import win32api
 import sys
@@ -32,6 +31,7 @@ from bin.logic_linked_graphic_scanner import Template_Flip, Template_Rotate
 from bin.logic_pdf_export import pdf_with_data_exporter
 
 from bin.logic_sql_database import db_connector
+from bin.logic_svg_render import svg_bytes_to_png
 from .logic_logger import logging
 
 str_image = 'Image'
@@ -485,7 +485,7 @@ def reduce_svg_image(svg_path, static_graphic, display_width, display_height):
 
 
 def apply_svg_simplification(svg_string, hmi_image_width, hmi_image_height):
-    image_data = cairosvg.svg2png(bytestring=svg_string, output_width=hmi_image_width, output_height=hmi_image_height)
+    image_data = svg_bytes_to_png(svg_string, output_width=hmi_image_width, output_height=hmi_image_height)
     image = Image.open(io.BytesIO(image_data))
     image.save('in.bmp')
 
