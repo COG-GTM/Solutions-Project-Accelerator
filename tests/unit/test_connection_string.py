@@ -51,6 +51,12 @@ class TestRedaction:
         redacted = redact_connection_string(add_password(BASE + 'UID=a;', 'x;y}z') + 'Encrypt=yes;')
         assert redacted == BASE + 'UID=a;Encrypt=yes;'
 
+    def test_repeated_password_attributes_are_all_removed(self):
+        stripped, password = split_password(BASE + 'UID=a;PWD=first;Password={sec;ond};Encrypt=yes;')
+        assert password == 'sec;ond'
+        assert stripped == BASE + 'UID=a;Encrypt=yes;'
+        assert 'first' not in redact_connection_string(BASE + 'PWD=first;UID=a;pwd=second;')
+
     def test_string_without_password_is_unchanged(self):
         connection_string = BASE + 'Trusted_Connection=yes;'
         assert redact_connection_string(connection_string) == connection_string

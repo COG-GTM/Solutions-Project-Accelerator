@@ -29,16 +29,19 @@ def _unquote_odbc_value(value):
 
 def split_password(connection_string):
     """
-    Remove the password attribute from ``connection_string``.
+    Remove every password attribute from ``connection_string``.
 
     :return: ``(connection_string_without_password, password)``; ``password``
-        is ``None`` when the string has no ``PWD`` / ``Password`` attribute.
+        is the last value (the one ODBC uses), or ``None`` when the string has no
+        ``PWD`` / ``Password`` attribute.
     """
-    match = _PASSWORD_ATTRIBUTE.search(connection_string or '')
-    if not match:
-        return connection_string or '', None
-    stripped = connection_string[:match.start()] + connection_string[match.end():]
-    return stripped, _unquote_odbc_value(match.group(1).strip())
+    stripped, password = connection_string or '', None
+    match = _PASSWORD_ATTRIBUTE.search(stripped)
+    while match:
+        password = _unquote_odbc_value(match.group(1).strip())
+        stripped = stripped[:match.start()] + stripped[match.end():]
+        match = _PASSWORD_ATTRIBUTE.search(stripped)
+    return stripped, password
 
 
 def add_password(connection_string, password):
