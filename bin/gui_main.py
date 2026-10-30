@@ -18,6 +18,7 @@ from bin.gui_textbox_progressbar_window import texbox_progressbar_window
 from bin.logic_acm_libraries_retrieval import acm_libraries_retrieval
 from bin.logic_acm_console import ACM_Console
 from bin.logic_export_import_project import import_project, export_project, read_project_name_from_zip
+from bin.logic_project_paths import InvalidProjectName, project_dir
 from bin.logic_internal_database import Database
 
 import tkinter as tk
@@ -1057,6 +1058,11 @@ class MainGUI(ttk.Frame):
     def import_project(self, path, double_click_file_open=False):
         try:
             importing_project_name = read_project_name_from_zip(path)
+        except InvalidProjectName as e:
+            logging.warning('Rejected project archive %s: %s', path, e)
+            messagebox.showwarning('Invalid project name', str(e))
+            if double_click_file_open: self.__import_project()  # try to open figures again
+            return
         except:
             messagebox.showwarning('Wrong file',
                                 'Not a valid project file.')
@@ -1066,13 +1072,13 @@ class MainGUI(ttk.Frame):
         projects = Project_File_Manager.get_all_projects()
         if importing_project_name in projects:
             if messagebox.askokcancel("Project already exists", "Do you want to replace the existing project?"):
-                Project_File_Manager.delete_directory(os.path.abspath('./projects/'+importing_project_name))
+                Project_File_Manager.delete_directory(project_dir(importing_project_name))
             else:
                 return
 
         # noinspection PyBroadException
         try:  # check if it is a right file with figures
-            import_project(path, './projects/'+importing_project_name)
+            import_project(path, importing_project_name)
         except Exception as e:
             messagebox.showerror('Error importing project', e)
             if double_click_file_open: self.__import_project()  # try to open figures again

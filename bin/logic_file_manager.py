@@ -9,9 +9,11 @@ import numpy as np
 try:
     from bin.logic_logger import handle_exception_with_messagebox
     from bin.logic_pdf_render import page_count, render_page
+    from bin.logic_project_paths import project_dir
 except:
     from logic_logger import handle_exception_with_messagebox
     from logic_pdf_render import page_count, render_page
+    from logic_project_paths import project_dir
 import uuid
 import os
 from shutil import copy
@@ -39,6 +41,7 @@ class Project_File_Manager():
         :rtype: str
         
         This function creates a new project directory with the given name in the './projects/' directory.
+        The name must be a plain folder name (see logic_project_paths); otherwise an error is shown and None is returned.
         It also creates a 'project.ini' file inside the project directory, which contains the project's name,
         description, and version. If the project directory already exists, it does nothing and returns the
         project name.
@@ -48,8 +51,8 @@ class Project_File_Manager():
             'my_project'
         """
         
-        destination = './projects/'+project_name 
-       
+        destination = project_dir(project_name)
+
         if not os.path.exists(destination):
             os.makedirs(destination,  exist_ok=True)
 
@@ -58,7 +61,7 @@ class Project_File_Manager():
         config['DEFAULT']['Description'] = project_description
         config['DEFAULT']['Version'] = version
 
-        with open('./projects/'+project_name+'/project.ini', 'w') as configfile:
+        with open(os.path.join(destination, 'project.ini'), 'w') as configfile:
             config.write(configfile)
 
         return project_name

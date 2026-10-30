@@ -1,0 +1,127 @@
+"""Path-traversal and zip-bomb guards for .aip project import (bin/logic_export_import_project.py)."""
+
+import configparser
+import io
+import os
+import zipfile
+
+import pytest
+
+from bin import logic_export_import_project as aip
+from bin.logic_project_paths import InvalidProjectName, is_valid_project_name, project_dir
+
+
+def make_aip(path, name, extra_files=None):
+    ini = configparser.ConfigParser()
+    ini['DEFAULT']['Name'] = name
+    ini['DEFAULT']['Description'] = 'd'
+    ini['DEFAULT']['Version'] = '1.0'
+    buffer = io.StringIO()
+    ini.write(buffer)
+    with zipfile.ZipFile(path, 'w') as zf:
+        zf.writestr('project.ini', buffer.getvalue())
+        zf.writestr('drawings/a/0.png', b'png')
+        for member, data in (extra_files or {}).items():
+            zf.writestr(member, data)
+    return str(path)
+
+
+@pytest.fixture
+def workspace(tmp_path, monkeypatch):
+    app = tmp_path / 'app'
+    (app / 'projects').mkdir(parents=True)
+    monkeypatch.chdir(app)
+    return tmp_path
+
+
+def files_outside_projects(root):
+    projects = os.path.join(root, 'app', 'projects')
+    found = []
+    for folder, _, names in os.walk(root):
+        for name in names:
+            full = os.path.join(folder, name)
+            if not full.startswith(projects + os.sep) and not name.endswith('.aip'):
+                found.append(full)
+    return found
+
+
+@pytest.mark.parametrize('name', [
+    'Pump Skid', 'Line_3', 'plant-2024 (rev.2)', 'Projekt Kühlung', 'A' * 100,
+])
+def test_accepts_plain_project_names(name):
+    assert is_valid_project_name(name)
+
+
+@pytest.mark.parametrize('name', [
+    '', '.', '..', '../x', '..\\x', 'a/b', 'a\\b', 'C:evil', 'C:\\Users\\Public',
+    '/etc', '\\\\server\\share', '..\\..\\..\\Users\\Public\\spa_traversal_test',
+    'trailing.', 'trailing ', ' leading', '.hidden', 'CON', 'nul.txt', 'A' * 101, 'tab\tname', None,
+])
+def test_rejects_unsafe_project_names(name):
+    assert not is_valid_project_name(name)
+    with pytest.raises(InvalidProjectName):
+        project_dir(name)
+
+
+def test_project_dir_is_direct_child_of_projects(workspace):
+    assert project_dir('Pump Skid') == os.path.join(str(workspace), 'app', 'projects', 'Pump Skid')
+
+
+@pytest.mark.parametrize('name', [
+    '..\\..\\..\\Users\\Public\\spa_traversal_test',
+    '../../../Users/Public/spa_traversal_test',
+    '../escape',
+])
+def test_traversal_name_in_project_ini_is_rejected_before_writing(workspace, name):
+    archive = make_aip(workspace / 'pump_skid.aip', name)
+
+    with pytest.raises(InvalidProjectName):
+        aip.read_project_name_from_zip(archive)
+    with pytest.raises(InvalidProjectName):
+        aip.import_project(archive, name)
+
+    assert files_outside_projects(str(workspace)) == []
+    assert os.listdir(workspace / 'app' / 'projects') == []
+
+
+def test_import_extracts_valid_project(workspace):
+    archive = make_aip(workspace / 'ok.aip', 'Pump Skid')
+
+    name = aip.read_project_name_from_zip(archive)
+    assert aip.import_project(archive, name) is True
+
+    target = workspace / 'app' / 'projects' / 'Pump Skid'
+    assert (target / 'project.ini').is_file()
+    assert (target / 'drawings' / 'a' / '0.png').read_bytes() == b'png'
+
+
+@pytest.mark.parametrize('member', ['../evil.txt', '..\\evil.txt', '/abs.txt', 'C:/evil.txt', 'a/../../evil.txt'])
+def test_unsafe_member_names_are_rejected(workspace, member):
+    archive = make_aip(workspace / 'bad.aip', 'Pump Skid', {member: b'x'})
+
+    with pytest.raises(aip.InvalidProjectArchive):
+        aip.import_project(archive, 'Pump Skid')
+
+    assert not (workspace / 'app' / 'projects' / 'Pump Skid').exists()
+    assert files_outside_projects(str(workspace)) == []
+
+
+def test_entry_count_limit(workspace, monkeypatch):
+    monkeypatch.setattr(aip, 'MAX_ARCHIVE_ENTRIES', 2)
+    archive = make_aip(workspace / 'many.aip', 'Pump Skid', {'b.txt': b'x'})
+
+    with pytest.raises(aip.InvalidProjectArchive, match='entries'):
+        aip.import_project(archive, 'Pump Skid')
+    assert not (workspace / 'app' / 'projects' / 'Pump Skid').exists()
+
+
+def test_uncompressed_size_limit(workspace, monkeypatch):
+    monkeypatch.setattr(aip, 'MAX_ARCHIVE_UNCOMPRESSED_BYTES', 1024)
+    archive = str(workspace / 'bomb.aip')
+    make_aip(archive, 'Pump Skid')
+    with zipfile.ZipFile(archive, 'a', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('big.bin', b'\0' * 4096)
+
+    with pytest.raises(aip.InvalidProjectArchive, match='expands'):
+        aip.import_project(archive, 'Pump Skid')
+    assert not (workspace / 'app' / 'projects' / 'Pump Skid').exists()

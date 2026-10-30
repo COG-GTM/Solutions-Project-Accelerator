@@ -1,7 +1,19 @@
 import zipfile
 import os
+import shutil
 from configparser import ConfigParser
 from io import StringIO
+try:
+    from bin.logic_project_paths import InvalidProjectName, is_inside, project_dir, validate_project_name
+except ImportError:
+    from logic_project_paths import InvalidProjectName, is_inside, project_dir, validate_project_name
+
+MAX_ARCHIVE_ENTRIES = 50000
+MAX_ARCHIVE_UNCOMPRESSED_BYTES = 4 * 1024 ** 3
+
+
+class InvalidProjectArchive(ValueError):
+    pass
 
 def export_project(source_folder, output_filename):
     """
@@ -41,46 +53,80 @@ def export_project(source_folder, output_filename):
         raise Exception(f"An error occurred during archiving: {e}")
 
 
-def import_project(zip_file_path, extract_to_path='./projects/'):
+def check_archive_members(zip_ref, destination):
     """
-    Import a project by extracting the files from the zip archive to the specified destination folder.
+    Reject archives that are too large or contain entries that would land outside ``destination``.
+
+    :raises InvalidProjectArchive: on too many entries, too much uncompressed data,
+        or an absolute / drive-qualified / '..' entry name.
+    """
+    members = zip_ref.infolist()
+    if len(members) > MAX_ARCHIVE_ENTRIES:
+        raise InvalidProjectArchive(
+            f"The AIP archive has {len(members)} entries (limit {MAX_ARCHIVE_ENTRIES}).")
+    total_size = sum(member.file_size for member in members)
+    if total_size > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
+        raise InvalidProjectArchive(
+            f"The AIP archive expands to {total_size} bytes (limit {MAX_ARCHIVE_UNCOMPRESSED_BYTES}).")
+
+    for member in members:
+        name = member.filename
+        parts = name.replace('\\', '/').split('/')
+        if (name.startswith(('/', '\\')) or any(part == '..' or ':' in part for part in parts)
+                or os.path.isabs(name)):
+            raise InvalidProjectArchive(f"The AIP archive contains an unsafe entry name: {name!r}")
+        if not is_inside(destination, os.path.join(destination, name)):
+            raise InvalidProjectArchive(f"The AIP archive entry {name!r} points outside the project folder.")
+
+
+def import_project(zip_file_path, project_name):
+    """
+    Import a project by extracting the (aip) zip archive into ./projects/<project_name>.
 
     :param zip_file_path: The path to the (aip) zip file containing the project files.
     :type zip_file_path: str
-    :param extract_to_path: The path to the destination folder where the project files will be extracted. Default is './projects/'.
-    :type extract_to_path: str
+    :param project_name: The project name; must be a plain folder name (see logic_project_paths).
+    :type project_name: str
     :return: True if the import was successful.
     :rtype: bool
 
+    :raises InvalidProjectName: If the project name is not a plain folder name.
+    :raises InvalidProjectArchive: If the archive is too large or has unsafe entry names.
     :raises FileNotFoundError: If the (aip) zip file does not exist.
     :raises zipfile.BadZipFile: If the file is not a valid (aip) zip file.
     :raises PermissionError: If there are issues with write permissions.
     :raises OSError: If a file system error occurs.
 
-    This function imports a project by extracting the files from the (aip) zip archive to the specified destination folder.
-    The folder structure within the (aip) zip file is preserved.
+    The folder structure within the (aip) zip file is preserved. Nothing is written
+    unless the destination is a direct child of ./projects and every entry stays inside it.
 
     Example:
-        >>> import_project('my_project.aip', './projects/')
+        >>> import_project('my_project.aip', 'my_project')
     """
-    abs_extract_to_path = os.path.abspath(extract_to_path)
+    abs_extract_to_path = project_dir(project_name)
+    created = False
     try:
-        # Create the destination folder if it doesn't exist
-        if not os.path.exists(abs_extract_to_path):
-            os.makedirs(abs_extract_to_path)
-
-        # Open the ZIP archive file
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-            # Extract all contents to the destination folder
-            zip_ref.extractall(abs_extract_to_path)
-        
+            check_archive_members(zip_ref, abs_extract_to_path)
+
+            if not os.path.exists(abs_extract_to_path):
+                os.makedirs(abs_extract_to_path)
+                created = True
+
+            try:
+                zip_ref.extractall(abs_extract_to_path)
+            except Exception:
+                if created:
+                    shutil.rmtree(abs_extract_to_path, ignore_errors=True)
+                raise
+
         return True
     except FileNotFoundError:
         raise FileNotFoundError(f"The AIP file '{zip_file_path}' does not exist.")
     except zipfile.BadZipFile:
         raise zipfile.BadZipFile(f"The file '{zip_file_path}' is not a valid AIP archive or is corrupt.")
     except PermissionError:
-        raise PermissionError(f"Permission denied while accessing '{extract_to_path}'.")
+        raise PermissionError(f"Permission denied while accessing '{abs_extract_to_path}'.")
     except OSError as e:
         raise OSError(f"A file system error occurred: {e}")
     
@@ -93,6 +139,7 @@ def read_project_name_from_zip(zip_path):
     :type zip_path: str
     :return: The name of the project.
     :rtype: str
+    :raises InvalidProjectName: If the name is not a plain folder name (e.g. contains '..' or path separators).
 
     This function reads the project name from a (aip) zip file by extracting the 'project.ini' file from the zip,
     parsing its content, and returning the value of the 'Name' key in the 'DEFAULT' section of the config file.
@@ -118,5 +165,4 @@ def read_project_name_from_zip(zip_path):
     config_parser = ConfigParser()
     config_parser.read_file(config_content)
 
-    # Convert parsed data to a dictionary
-    return config_parser['DEFAULT']['Name']
+    return validate_project_name(config_parser['DEFAULT']['Name'])

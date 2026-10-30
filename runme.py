@@ -200,6 +200,7 @@ if __name__ == '__main__':
     from bin.gui_wizard import New_Project_Wizard
     splash_screen.update_progress(40, "Loading projects elements")
     from bin.logic_export_import_project import import_project, read_project_name_from_zip
+    from bin.logic_project_paths import InvalidProjectName, project_dir
     splash_screen.update_progress(50, "Loading files")
     from bin.logic_file_manager import Project_File_Manager
     splash_screen.update_progress(70, "Preparing UI elements")
@@ -254,6 +255,10 @@ if __name__ == '__main__':
         if path == '': return
         try:
             importing_project_name = read_project_name_from_zip(path)
+        except InvalidProjectName as e:
+            logging.warning('Rejected project archive %s: %s', path, e)
+            messagebox.showwarning('Invalid project name', str(e))
+            return
         except:
             messagebox.showwarning('Wrong file',
                                 'Not a valid project file.')
@@ -262,14 +267,14 @@ if __name__ == '__main__':
         projects = Project_File_Manager.get_all_projects()
         if importing_project_name in projects:
             if messagebox.askokcancel("Project already exists", "Do you want to replace the existing project?"):
-                Project_File_Manager.delete_directory(os.path.abspath('./projects/'+importing_project_name))
+                Project_File_Manager.delete_directory(project_dir(importing_project_name))
             else:
                 return
 
         # noinspection PyBroadException
         try:  # check if it is a right file with figures
             logging.info('Importing Project')
-            import_project(path, './projects/'+importing_project_name)
+            import_project(path, importing_project_name)
             this_dir = os.path.dirname(os.path.realpath(__file__))  # path to this directory
             os.chdir(this_dir)  # make path to this dir the current path
             splash_screen.w.destroy()
