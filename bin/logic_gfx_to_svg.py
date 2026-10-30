@@ -41,8 +41,9 @@ def render_svg_to_png(svg, **kwargs) -> bytes:
     """Rasterise generated SVG with cairosvg without fetching external resources."""
     if isinstance(svg, str):
         svg = svg.encode('utf-8')
-    import cairosvg
-    return cairosvg.svg2png(bytestring=svg, unsafe=False, url_fetcher=data_only_url_fetcher, **kwargs)
+    # cairosvg.svg2png() does not forward url_fetcher; PNGSurface.convert passes extra kwargs to the parser Tree.
+    from cairosvg.surface import PNGSurface
+    return PNGSurface.convert(bytestring=svg, unsafe=False, url_fetcher=data_only_url_fetcher, **kwargs)
 
 class AnchorDirection(str, Enum):
     """Enum defining different anchor types"""

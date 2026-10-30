@@ -87,22 +87,61 @@ class TestDataOnlyUrlFetcher:
 
 
 class TestRenderSvgToPng:
+    def test_uses_restricted_fetcher(self, monkeypatch):
+        import sys
+        import types
+
+        from bin import logic_gfx_to_svg
+
+        calls = []
+
+        class FakePNGSurface:
+            @classmethod
+            def convert(cls, **kwargs):
+                calls.append(kwargs)
+                return b"png"
+
+        fake_pkg = types.ModuleType("cairosvg")
+        fake_surface = types.ModuleType("cairosvg.surface")
+        fake_surface.PNGSurface = FakePNGSurface
+        fake_pkg.surface = fake_surface
+        monkeypatch.setitem(sys.modules, "cairosvg", fake_pkg)
+        monkeypatch.setitem(sys.modules, "cairosvg.surface", fake_surface)
+
+        assert logic_gfx_to_svg.render_svg_to_png("<svg/>", scale=2) == b"png"
+        assert calls == [{
+            "bytestring": b"<svg/>",
+            "unsafe": False,
+            "url_fetcher": logic_gfx_to_svg.data_only_url_fetcher,
+            "scale": 2,
+        }]
+
     def test_injected_image_is_never_fetched(self, monkeypatch):
         pytest.importorskip("cairosvg.surface")
-        import urllib.request
+        import cairosvg.url
 
-        from bin.logic_gfx_to_svg import render_svg_to_png
+        from bin import logic_gfx_to_svg
 
-        opened = []
-        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: opened.append(a) or None)
+        offered = []
+        real_fetcher = logic_gfx_to_svg.data_only_url_fetcher
+
+        def spy(url, resource_type=None):
+            offered.append(url)
+            return real_fetcher(url, resource_type)
+
+        def no_network(*args, **kwargs):
+            raise AssertionError("cairosvg attempted to open a URL")
+
+        monkeypatch.setattr(logic_gfx_to_svg, "data_only_url_fetcher", spy)
+        monkeypatch.setattr(cairosvg.url, "urlopen", no_network, raising=False)
 
         svg, _, _, _ = gfx_to_svg(_symbol(_rect(back_color=INJECTION)))
-        png = render_svg_to_png(svg)
+        png = logic_gfx_to_svg.render_svg_to_png(svg)
         raw = ('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
                '<image href="http://127.0.0.1:9/x" width="10" height="10"/>'
                '<rect width="10" height="10" fill="red"/></svg>')
-        raw_png = render_svg_to_png(raw)
+        raw_png = logic_gfx_to_svg.render_svg_to_png(raw)
 
         assert png.startswith(b"\x89PNG")
         assert raw_png.startswith(b"\x89PNG")
-        assert opened == []
+        assert all("127.0.0.1" in str(url) for url in offered)
