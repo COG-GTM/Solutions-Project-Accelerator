@@ -2,7 +2,6 @@ from typing import List, Optional
 from bin.logic_config import Config
 from threading import Thread
 from uuid import uuid4
-import cairosvg
 from svgpathtools import svg2paths2, Path, Line, is_path_segment, wsvg, parse_path
 import cv2
 import numpy as np
@@ -14,6 +13,7 @@ from PIL import Image
 from lxml import etree
 from bin.logic_file_manager import Project_File_Manager
 from bin.logic_pdf_to_svg import page_to_svg
+from bin.logic_svg_render import svg_bytes_to_png
 
 from bin.logic_profile import profile
 
@@ -211,7 +211,7 @@ class extract_hmi_graphic:
         1. Checks if there are any strokes in the region of interest (ROI). If not, returns None.
         2. Checks if there are any fills in the ROI and if there is no error message. If not, returns None.
         3. If the HMI SVG drawing is not already built, builds it.
-        4. Converts the SVG drawing to PNG image data using cairosvg.
+        4. Converts the SVG drawing to PNG image data using cairosvg (external references blocked).
         5. Returns the image data as an Image object.
         
         Example:
@@ -228,7 +228,7 @@ class extract_hmi_graphic:
         if self.__hmi_svg_drawing is None :
             self.__build_hmi_graphic()
 
-        image_data = cairosvg.svg2png(bytestring=self.__hmi_svg_drawing.tostring())
+        image_data = svg_bytes_to_png(self.__hmi_svg_drawing.tostring())
         return Image.open(io.BytesIO(image_data))
 
        
@@ -522,7 +522,7 @@ class extract_hmi_graphic:
         
         xmin, ymin, viewbox_width, viewbox_height = doc.attrib['viewBox'].split(' ')
 
-        image_data = cairosvg.svg2png(bytestring=self.__roi_paths_drawing.tostring())
+        image_data = svg_bytes_to_png(self.__roi_paths_drawing.tostring())
         
         image = Image.open(io.BytesIO(image_data))
         

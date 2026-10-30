@@ -122,3 +122,20 @@ class TestSelfContainedSvgsStillRender:
     def test_output_size_kwargs_are_passed_through(self):
         png = svg_bytes_to_png(_svg(""), output_width=40, output_height=30)
         assert Image.open(io.BytesIO(png)).size == (40, 30)
+
+
+    def test_validator_rasterises_svg_offline(self, urlopen_calls, red_png_file):
+        from bin.logic_validators import Validators
+
+        svg_path = red_png_file.parent / "upload.svg"
+        svg_path.write_text(_svg(f'<image href="{red_png_file.as_uri()}" width="20" height="20"/>'))
+        assert Validators.check_svg_or_png(str(svg_path)) is True
+        assert urlopen_calls == []
+
+    def test_validator_rejects_non_svg_content(self, tmp_path):
+        from bin.logic_validators import Validators
+
+        bogus = tmp_path / "not.svg"
+        bogus.write_text("this is not xml")
+        assert Validators.check_svg_or_png(str(bogus)) is False
+
