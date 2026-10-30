@@ -5,7 +5,8 @@ project can be imported from an untrusted archive, so a stored pattern must not
 be able to hang the UI with catastrophic backtracking. Patterns are validated
 (length cap, no backreferences, no repeated group that itself repeats or
 alternates) and then matched with the ``regex`` engine under a timeout. A
-pattern that fails either check is remembered and never run again.
+pattern that fails validation is remembered and never run again; a timeout is
+remembered only for that pattern and input string.
 """
 import logging
 import re
@@ -30,6 +31,7 @@ if hasattr(_sre_constants, 'POSSESSIVE_REPEAT'):
 _BACKREFERENCE_OPS = {_sre_constants.GROUPREF, _sre_constants.GROUPREF_EXISTS}
 
 _rejected_patterns = {}
+_timed_out_inputs = set()
 
 
 class UnsafeRegexError(ValueError):
@@ -95,6 +97,14 @@ def _reject(pattern, reason):
     logging.warning('Skipping stored regex %.80r: %s', pattern, reason)
 
 
+def _record_timeout(pattern, string):
+    if len(_timed_out_inputs) >= _MAX_REJECTED_PATTERNS:
+        _timed_out_inputs.clear()
+    _timed_out_inputs.add((pattern, string))
+    logging.warning('Stored regex %.80r took longer than %ss on a %d-character input',
+                    pattern, MATCH_TIMEOUT_SECONDS, len(string))
+
+
 def _compile(pattern):
     key = pattern if isinstance(pattern, str) else repr(pattern)
     if key in _rejected_patterns:
@@ -113,13 +123,13 @@ def is_safe_pattern(pattern):
 
 def _run(pattern, method, string, default):
     compiled = _compile(pattern)
-    if compiled is None:
+    if compiled is None or (pattern, string) in _timed_out_inputs:
         return default
     try:
         result = getattr(compiled, method)(string, timeout=MATCH_TIMEOUT_SECONDS)
         return list(result) if method == 'finditer' else result
     except TimeoutError:
-        _reject(pattern, f'matching took longer than {MATCH_TIMEOUT_SECONDS}s')
+        _record_timeout(pattern, string)
         return default
 
 

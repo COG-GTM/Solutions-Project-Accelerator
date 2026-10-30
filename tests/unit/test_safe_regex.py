@@ -16,8 +16,10 @@ from bin.logic_linked_texts import (
 @pytest.fixture(autouse=True)
 def _fresh_rejections():
     safe_regex._rejected_patterns.clear()
+    safe_regex._timed_out_inputs.clear()
     yield
     safe_regex._rejected_patterns.clear()
+    safe_regex._timed_out_inputs.clear()
 
 
 def build_regex_for(given_text_string, key_and_ignore_indexes, text_type, in_table=False):
@@ -98,14 +100,23 @@ class TestGuardedMatching:
         assert r'(a+)+$' in safe_regex._rejected_patterns
         assert sum('Skipping stored regex' in r.message for r in caplog.records) == 1
 
-    def test_timeout_rejects_slow_pattern(self, monkeypatch):
-        class SlowPattern:
-            def search(self, string, timeout):
-                raise TimeoutError('regex timed out')
+    def test_timeout_is_scoped_to_the_slow_input(self, monkeypatch):
+        calls = []
 
-        monkeypatch.setattr(safe_regex.regex, 'compile', lambda pattern: SlowPattern())
-        assert safe_regex.search(r'(\d*)x', '1' * 10) is None
-        assert r'(\d*)x' in safe_regex._rejected_patterns
+        class SlowOnLongInput:
+            def search(self, string, timeout):
+                calls.append(string)
+                if len(string) > 100:
+                    raise TimeoutError('regex timed out')
+                return 'match'
+
+        monkeypatch.setattr(safe_regex.regex, 'compile', lambda pattern: SlowOnLongInput())
+        long_page = '1' * 1000
+        assert safe_regex.search(r'(\d*)x', long_page) is None
+        assert safe_regex.search(r'(\d*)x', long_page) is None
+        assert calls == [long_page]
+        assert safe_regex.search(r'(\d*)x', '1x') == 'match'
+        assert r'(\d*)x' not in safe_regex._rejected_patterns
 
     def test_matches_like_re_for_safe_patterns(self):
         text = 'Pump P-101 runs at 12.5 bar; Pump P-102 runs at 7 bar'
@@ -122,3 +133,11 @@ class TestLinkedTextsUseGuardedMatching:
         get_group = linked_texts._Linked_Texts__get_regex_group
         assert get_group('a' * 50000 + '!', r'(a+)+$', [0, 1]) is None
         assert get_group('Level LIC-2001 > Lo', r'Level ([^.]*?) > Lo', [6, 14]) == 1
+
+
+class TestPreviewHighlightPattern:
+
+    def test_full_matches_for_pattern_at_length_cap(self):
+        pattern = 'a' * safe_regex.MAX_PATTERN_LENGTH
+        page = 'x' + pattern + 'y'
+        assert [m.group(0) for m in safe_regex.finditer(pattern, page)] == [pattern]

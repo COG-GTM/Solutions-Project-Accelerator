@@ -4752,10 +4752,7 @@ class TextSelectorTools(CanvasImage):
         if regex_string is None:
             regex_string = self.__selected_text_regex_string
 
-        if not safe_regex.is_safe_pattern(regex_string):
-            return []
-
-        return safe_regex.findall(f'({regex_string})',self.text_in_page_string)
+        return [match.group(0) for match in safe_regex.finditer(regex_string,self.text_in_page_string)]
         
 
       
