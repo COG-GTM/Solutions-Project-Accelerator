@@ -27,7 +27,6 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-import cairosvg
 from PIL import Image, ImageTk
 
 try:
@@ -49,7 +48,7 @@ try:
         vertical_center_align_blue, vertical_center_align_dark_gray, vertical_center_align_light_gray,
         bottom_align_blue, bottom_align_dark_gray, bottom_align_light_gray,
     )
-    from bin.logic_gfx_to_svg import gfx_to_svg
+    from bin.logic_gfx_to_svg import gfx_to_svg, render_svg_to_png
 except ImportError:
     from gui_autoscrollbar import AutoScrollbar
     from gui_elements import hover_toggle_button, button_array
@@ -69,7 +68,7 @@ except ImportError:
         vertical_center_align_blue, vertical_center_align_dark_gray, vertical_center_align_light_gray,
         bottom_align_blue, bottom_align_dark_gray, bottom_align_light_gray,
     )
-    from logic_gfx_to_svg import gfx_to_svg
+    from logic_gfx_to_svg import gfx_to_svg, render_svg_to_png
 
 
 # Direction constants stored as plain strings so the payload the editor
@@ -424,8 +423,7 @@ class LibraryAnchorEditor:
         raw_scale = _DEFAULT_DISPLAY_SIZE / longest_edge
         self._display_scale = max(_MIN_DISPLAY_SCALE, min(_MAX_DISPLAY_SCALE, raw_scale))
 
-        png_bytes = cairosvg.svg2png(bytestring=svg_string.encode("utf-8"),
-                                     scale=self._display_scale)
+        png_bytes = render_svg_to_png(svg_string, scale=self._display_scale)
         img = Image.open(io.BytesIO(png_bytes))
         self._image_tk = ImageTk.PhotoImage(img)
 

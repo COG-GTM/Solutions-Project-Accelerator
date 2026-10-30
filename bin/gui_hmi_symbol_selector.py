@@ -5,13 +5,12 @@ from PIL import Image, ImageTk, ImageDraw
 import os
 import math
 
-import cairosvg
 try:
     from bin.gui_autoscrollbar import AutoScrollbar
-    from bin.logic_gfx_to_svg import gfx_to_svg
+    from bin.logic_gfx_to_svg import gfx_to_svg, render_svg_to_png
 except ImportError as e:
     from gui_autoscrollbar import AutoScrollbar
-    from logic_gfx_to_svg import gfx_to_svg
+    from logic_gfx_to_svg import gfx_to_svg, render_svg_to_png
 
 class HMISymbolSelector:
     def __init__(self,parent, library_parser, pre_selection, callback=None):
@@ -63,7 +62,7 @@ class HMISymbolSelector:
 
             # Fit the SVG to a 150x150 box by scaling it
             scale = min(self.image_size/viewbox[2],self.image_size/viewbox[3])
-            img = Image.open(io.BytesIO(cairosvg.svg2png(svg,scale=scale)))
+            img = Image.open(io.BytesIO(render_svg_to_png(svg, scale=scale)))
             photo = ImageTk.PhotoImage(img)
             
             self.hmi_symbol_images[symbol['Name']] = photo
