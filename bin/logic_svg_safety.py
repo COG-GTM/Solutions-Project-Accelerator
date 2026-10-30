@@ -8,7 +8,7 @@ import os
 import re
 from urllib.parse import urlparse
 
-import cairosvg
+import cairosvg.surface
 import cairosvg.url
 from defusedxml import ElementTree as DefusedET
 
@@ -165,8 +165,10 @@ def render_svg_to_png(path, max_side=MAX_SVG_RENDER_SIDE):
     """Rasterise an untrusted SVG offline with the longest side capped at ``max_side`` pixels."""
     data, root = inspect_svg(path)
     output_width, output_height = _bounded_output_size(root, max_side)
-    return cairosvg.svg2png(bytestring=data, url_fetcher=data_only_url_fetcher, unsafe=False,
-                            output_width=output_width, output_height=output_height)
+    # svg2png() has no url_fetcher argument; convert() forwards it to the parser Tree.
+    return cairosvg.surface.PNGSurface.convert(
+        bytestring=data, url_fetcher=data_only_url_fetcher, unsafe=False,
+        output_width=output_width, output_height=output_height)
 
 
 def is_safe_svg(path):

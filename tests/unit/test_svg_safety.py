@@ -155,3 +155,20 @@ def test_preview_render_rejects_external_reference(tmp_path, fetched_urls):
     with pytest.raises(UnsafeSvgError):
         render_svg_to_png(_write(tmp_path, body))
     assert fetched_urls == []
+
+
+def test_render_passes_offline_fetcher_and_size_cap_to_cairosvg(tmp_path, monkeypatch):
+    import cairosvg.surface
+
+    calls = []
+    real_convert = cairosvg.surface.PNGSurface.convert
+
+    def recording_convert(*args, **kwargs):
+        calls.append(kwargs)
+        return real_convert(*args, **kwargs)
+
+    monkeypatch.setattr(cairosvg.surface.PNGSurface, "convert", recording_convert)
+    render_svg_to_png(_write(tmp_path, VALID_SVG), max_side=16)
+    assert calls[0]["url_fetcher"] is data_only_url_fetcher
+    assert calls[0]["unsafe"] is False
+    assert (calls[0]["output_width"], calls[0]["output_height"]) == (16, 8)
