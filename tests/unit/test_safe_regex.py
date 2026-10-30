@@ -70,9 +70,18 @@ class TestMatchObjectNames:
         names = pd.Series(["A" * (MAX_NAME_LENGTH + 1), None, float("nan"), "A"])
         assert match_object_names(names, "A+").tolist() == [False, False, False, True]
 
-    def test_time_budget_stops_matching(self):
+    def test_time_budget_skips_the_pattern(self):
         names = pd.Series(["PUMP_1"] * 10)
         assert not match_object_names(names, "PUMP_1", time_budget=-1).any()
+
+    def test_polynomial_backtracking_is_cut_off_by_the_time_budget(self):
+        pattern = "a*" * 10 + "b"
+        validate_object_assignment_regex(pattern)
+        names = pd.Series(["PUMP_1", "a" * MAX_NAME_LENGTH])
+        start = time.monotonic()
+        mask = match_object_names(names, pattern, time_budget=0.5)
+        assert time.monotonic() - start < 3
+        assert not mask.any()
 
     def test_empty_series(self):
         mask = match_object_names(pd.Series([], dtype=object), "PUMP")

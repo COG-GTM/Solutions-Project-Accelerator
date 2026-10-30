@@ -1,17 +1,18 @@
 """Guarded matching for object assignment regexes stored in the project database.
 
 Patterns in the ``object_assignment_regexes`` table come from the project file, which
-may have been imported from an untrusted archive. Python's ``re`` has no timeout, so a
-pattern such as ``(a+)+$`` run over long names can backtrack for minutes. Patterns are
-therefore checked before use (length cap, compile check, no nested or alternating
-quantifiers, no backreferences) and names longer than a PLC tag can be are skipped.
+may have been imported from an untrusted archive, and a pattern such as ``(a+)+$`` or
+``a*a*a*a*a*b`` can backtrack for minutes. Patterns are checked before use (length cap,
+compile check, no nested or alternating quantifiers, no backreferences), names longer
+than a PLC tag can be are skipped, and matching runs on the ``regex`` engine with a
+per-pattern time budget; a pattern that exceeds it is skipped entirely.
 """
 
 import logging
-import re
 import time
 
 import pandas as pd
+import regex
 
 try:
     import re._parser as _sre_parse
@@ -92,10 +93,10 @@ def is_safe_object_assignment_regex(pattern):
 
 
 def match_object_names(names, pattern, time_budget=MATCH_TIME_BUDGET_SECONDS):
-    """Boolean mask of ``names`` that ``re.match`` ``pattern``; all False if the pattern is unsafe.
+    """Boolean mask of ``names`` that ``pattern`` matches at the start of; all False if the pattern is unsafe.
 
-    Names longer than ``MAX_NAME_LENGTH`` never match. If matching exceeds ``time_budget``
-    seconds the remaining names are left unmatched.
+    Names longer than ``MAX_NAME_LENGTH`` never match. If matching all names takes longer
+    than ``time_budget`` seconds the pattern is skipped and nothing matches.
     """
     matches = [False] * len(names)
     try:
@@ -104,14 +105,23 @@ def match_object_names(names, pattern, time_budget=MATCH_TIME_BUDGET_SECONDS):
         logger.warning('Skipping object assignment regex %r: %s', str(pattern)[:80], error)
         return pd.Series(matches, index=names.index, dtype=bool)
 
-    compiled = re.compile(pattern)
+    try:
+        compiled = regex.compile(pattern)
+    except regex.error as error:
+        logger.warning('Skipping object assignment regex %r: %s', pattern[:80], error)
+        return pd.Series([False] * len(names), index=names.index, dtype=bool)
+
     deadline = time.monotonic() + time_budget
     for position, name in enumerate(names):
         if not isinstance(name, str) or len(name) > MAX_NAME_LENGTH:
             continue
-        if time.monotonic() > deadline:
-            logger.warning('Object assignment regex %r exceeded its time budget; remaining names skipped',
-                           pattern[:80])
-            break
-        matches[position] = compiled.match(name) is not None
+        remaining = deadline - time.monotonic()
+        try:
+            if remaining <= 0:
+                raise TimeoutError
+            matches[position] = compiled.match(name, timeout=remaining) is not None
+        except TimeoutError:
+            logger.warning('Skipping object assignment regex %r: exceeded its %.1f s time budget',
+                           pattern[:80], time_budget)
+            return pd.Series([False] * len(names), index=names.index, dtype=bool)
     return pd.Series(matches, index=names.index, dtype=bool)
