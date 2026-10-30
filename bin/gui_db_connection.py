@@ -42,7 +42,7 @@ class db_conntection_form:
     def __setup_form(self):
 
         
-        self.__form.geometry('375x474')
+        self.__form.geometry('375x500')
         self.__form.resizable(False, False)
         this_dir = os.path.dirname(os.path.realpath(__file__))  # directory of this file
         self.__form.iconbitmap(os.path.join(this_dir, 'logo.ico'))  # set logo icon
@@ -50,6 +50,7 @@ class db_conntection_form:
         self.__setup_server_selection_section()
         self.__setup_authenticaton_details_section()
         self.__setup_database_selection_section()
+        self.__setup_security_section()
         self.__setup_end_of_form()
 
 
@@ -187,20 +188,32 @@ class db_conntection_form:
         logicalNameEntry.place(x = 25 , y = 112)
 
 
+    def __setup_security_section(self):
+
+        self.__trustServerCertificate_var = IntVar(None, 0)
+        trustServerCertificate = ttk.Checkbutton(self.__form,
+                                                    text = "Trust server certificate (not recommended)",
+                                                    variable = self.__trustServerCertificate_var,
+                                                    onvalue = 1,
+                                                    offvalue = 0,
+                                                    command = self.__start_get_all_database_thread)
+        trustServerCertificate.place(x = 10 , y = 426)
+
+
     def __setup_end_of_form(self):
 
-        ttk.Separator(self.__form,orient=HORIZONTAL).place(x = 10 , y = 430, width= 355)
+        ttk.Separator(self.__form,orient=HORIZONTAL).place(x = 10 , y = 456, width= 355)
 
         testConnectionButton = ttk.Button(self.__form, 
                                             text = 'Test Connection', 
                                             command = self.__test_connection)
-        testConnectionButton.place(x = 10 , y = 440)
+        testConnectionButton.place(x = 10 , y = 466)
 
         browse = ttk.Button(self.__form, text = 'Cancel', command = self.__form.destroy)
-        browse.place(x = 290 , y = 440)
+        browse.place(x = 290 , y = 466)
 
         browse = ttk.Button(self.__form, text = 'OK', command = self.__ok)
-        browse.place(x = 208 , y = 440)
+        browse.place(x = 208 , y = 466)
 
     
     def __server_chosen(self):
@@ -222,7 +235,8 @@ class db_conntection_form:
         db_thread=Thread(target=self.__get_all_databases,args=(self.__server_sv.get(), 
                                                                 self.__username_sv.get(),
                                                                 self.__password_sv.get(),
-                                                                self.__windowAuthentication_var.get()))
+                                                                self.__windowAuthentication_var.get(),
+                                                                self.__trustServerCertificate_var.get()))
         self.__get_all_database_done = False 
         
         db_thread.start()
@@ -233,19 +247,20 @@ class db_conntection_form:
                                             database=self.__databaseChosen_sv.get(),
                                             user=self.__username_sv.get(),
                                             password=self.__password_sv.get(),
-                                            use_windows_authentication = self.__windowAuthentication_var.get())
-        connection_string = connection_string + "TrustServerCertificate=yes;"
+                                            use_windows_authentication = self.__windowAuthentication_var.get(),
+                                            trust_server_certificate = self.__trustServerCertificate_var.get())
         self.__callback(connection_string, self.__windowAuthentication_var.get(), self.__saveMyPassword.get())
         self.__form.destroy()
         
 
 
-    def __get_all_databases(self, server,username,password,use_windows_authentication):
+    def __get_all_databases(self, server,username,password,use_windows_authentication,trust_server_certificate):
         try:
             self.__all_databases = get_all_databases(server,
                                             user=username,
                                             password=password,
-                                            use_windows_authentication = use_windows_authentication)
+                                            use_windows_authentication = use_windows_authentication,
+                                            trust_server_certificate = trust_server_certificate)
             self.__get_all_database_done = True
         except Exception as error:
             logging.error('Get all database error: ' + str(error))
@@ -313,8 +328,8 @@ class db_conntection_form:
                                             database=self.__databaseChosen_sv.get(),
                                             user=self.__username_sv.get(),
                                             password=self.__password_sv.get(),
-                                            use_windows_authentication = self.__windowAuthentication_var.get())
-            connection_string = connection_string + "TrustServerCertificate=yes;"
+                                            use_windows_authentication = self.__windowAuthentication_var.get(),
+                                            trust_server_certificate = self.__trustServerCertificate_var.get())
 
             test_connection(connection_string)
             messagebox.showinfo('Connected', 
