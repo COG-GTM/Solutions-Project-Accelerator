@@ -17,8 +17,9 @@ from bin.gui_settings import settings
 from bin.gui_textbox_progressbar_window import texbox_progressbar_window
 from bin.logic_acm_libraries_retrieval import acm_libraries_retrieval
 from bin.logic_acm_console import ACM_Console
-from bin.logic_export_import_project import import_project, export_project, read_project_name_from_zip, InvalidProjectArchive
-from bin.logic_project_paths import InvalidProjectName
+from bin.logic_export_import_project import import_project, export_project, read_project_name_from_zip, InvalidProjectArchive, \
+    ReplacedProjectNotRemoved
+from bin.logic_project_paths import InvalidProjectName, find_existing_project
 from bin.logic_internal_database import Database
 
 import tkinter as tk
@@ -1069,14 +1070,16 @@ class MainGUI(ttk.Frame):
             if double_click_file_open: self.__import_project()  # try to open figures again
             return
         
-        projects = [project.lower() for project in Project_File_Manager.get_all_projects()]
-        replace = importing_project_name.lower() in projects
+        replace = find_existing_project(importing_project_name) is not None
         if replace and not messagebox.askokcancel("Project already exists", "Do you want to replace the existing project?"):
             return
 
         # noinspection PyBroadException
         try:  # check if it is a right file with figures
             import_project(path, importing_project_name, replace=replace)
+        except ReplacedProjectNotRemoved as e:
+            logging.warning(str(e))
+            messagebox.showwarning('Project imported', str(e))
         except Exception as e:
             messagebox.showerror('Error importing project', e)
             if double_click_file_open: self.__import_project()  # try to open figures again

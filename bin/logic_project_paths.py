@@ -73,3 +73,18 @@ def project_dir(name):
     if is_link(destination) or not is_inside(os.path.realpath(root), os.path.realpath(destination)):
         raise InvalidProjectName("Project folder for %r is a link; refusing to use it." % name)
     return destination
+
+
+def find_existing_project(name):
+    """
+    Name of the existing project folder that ``name`` refers to, matched case-insensitively
+    (project names are case-insensitive on Windows), or None.
+    """
+    root = projects_root()
+    if not os.path.isdir(root):
+        return None
+    entries = [entry for entry in os.listdir(root) if not entry.startswith('.')]
+    if name in entries:
+        return name
+    matches = sorted(entry for entry in entries if entry.lower() == name.lower())
+    return matches[0] if matches else None

@@ -8,7 +8,7 @@ import zipfile
 import pytest
 
 from bin import logic_export_import_project as aip
-from bin.logic_project_paths import InvalidProjectName, is_valid_project_name, project_dir
+from bin.logic_project_paths import InvalidProjectName, find_existing_project, is_valid_project_name, project_dir
 
 
 def make_aip(path, name, extra_files=None):
@@ -203,3 +203,41 @@ def test_symlinked_project_folder_is_rejected(workspace):
         aip.import_project(archive, 'Pump Skid', replace=True)
 
     assert os.listdir(outside) == []
+
+
+def test_case_only_replacement_replaces_existing_folder(workspace):
+    aip.import_project(make_aip(workspace / 'v1.aip', 'Pump', {'old.txt': b'old'}), 'Pump')
+
+    with pytest.raises(FileExistsError):
+        aip.import_project(make_aip(workspace / 'v2.aip', 'pump'), 'pump')
+    aip.import_project(make_aip(workspace / 'v2.aip', 'pump', {'new.txt': b'new'}), 'pump', replace=True)
+
+    assert projects_entries(workspace) == ['pump']
+    assert (workspace / 'app' / 'projects' / 'pump' / 'new.txt').read_bytes() == b'new'
+
+
+def test_find_existing_project_is_case_insensitive(workspace):
+    (workspace / 'app' / 'projects' / 'Pump Skid').mkdir()
+    (workspace / 'app' / 'projects' / '.aip-replaced-x').mkdir()
+
+    assert find_existing_project('Pump Skid') == 'Pump Skid'
+    assert find_existing_project('PUMP SKID') == 'Pump Skid'
+    assert find_existing_project('.aip-replaced-x') is None
+    assert find_existing_project('Other') is None
+
+
+def test_failed_backup_cleanup_is_reported_and_kept(workspace, monkeypatch):
+    aip.import_project(make_aip(workspace / 'v1.aip', 'Pump Skid', {'old.txt': b'old'}), 'Pump Skid')
+
+    def deny(path, *args, **kwargs):
+        raise PermissionError('read-only')
+
+    monkeypatch.setattr(aip.shutil, 'rmtree', deny)
+    with pytest.raises(aip.ReplacedProjectNotRemoved) as excinfo:
+        aip.import_project(make_aip(workspace / 'v2.aip', 'Pump Skid', {'new.txt': b'new'}), 'Pump Skid', replace=True)
+
+    projects = workspace / 'app' / 'projects'
+    assert (projects / 'Pump Skid' / 'new.txt').read_bytes() == b'new'
+    assert os.path.dirname(excinfo.value.backup_path) == str(projects)
+    assert (projects / os.path.basename(excinfo.value.backup_path) / 'old.txt').read_bytes() == b'old'
+    assert excinfo.value.backup_path in str(excinfo.value)

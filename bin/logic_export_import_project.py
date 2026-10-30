@@ -6,9 +6,11 @@ import uuid
 from configparser import ConfigParser
 from io import StringIO
 try:
-    from bin.logic_project_paths import InvalidProjectName, is_inside, is_link, project_dir, validate_project_name
+    from bin.logic_project_paths import (InvalidProjectName, find_existing_project, is_inside, is_link, project_dir,
+                                         validate_project_name)
 except ImportError:
-    from logic_project_paths import InvalidProjectName, is_inside, is_link, project_dir, validate_project_name
+    from logic_project_paths import (InvalidProjectName, find_existing_project, is_inside, is_link, project_dir,
+                                     validate_project_name)
 
 MAX_ARCHIVE_ENTRIES = 50000
 MAX_ARCHIVE_UNCOMPRESSED_BYTES = 4 * 1024 ** 3
@@ -19,6 +21,16 @@ REPLACED_PREFIX = '.aip-replaced-'
 
 class InvalidProjectArchive(ValueError):
     pass
+
+
+class ReplacedProjectNotRemoved(Exception):
+    """The new project was imported, but the previous version could not be fully deleted."""
+
+    def __init__(self, backup_path, error):
+        super().__init__(
+            f"The project was imported, but the previous version could not be fully removed ({error}). "
+            f"Its remaining files were kept in '{backup_path}'.")
+        self.backup_path = backup_path
 
 def export_project(source_folder, output_filename):
     """
@@ -88,23 +100,32 @@ def _remove_tree(path):
     if is_link(path):
         os.unlink(path) if os.path.islink(path) else os.rmdir(path)
     else:
-        shutil.rmtree(path, ignore_errors=True)
+        shutil.rmtree(path)
 
 
-def _swap_into_place(staging, destination):
-    """Move ``staging`` to ``destination``; an existing destination is only removed once the move succeeded."""
+def _swap_into_place(staging, destination, existing=None):
+    """
+    Move ``staging`` to ``destination``. ``existing`` (default: ``destination``) is moved aside first
+    and only deleted once the move succeeded.
+
+    :raises ReplacedProjectNotRemoved: if the new project is in place but the old one could not be deleted.
+    """
+    existing = existing or destination
     backup = None
-    if os.path.lexists(destination):
-        backup = os.path.join(os.path.dirname(destination), REPLACED_PREFIX + uuid.uuid4().hex)
-        os.rename(destination, backup)
+    if os.path.lexists(existing):
+        backup = os.path.join(os.path.dirname(existing), REPLACED_PREFIX + uuid.uuid4().hex)
+        os.rename(existing, backup)
     try:
         os.rename(staging, destination)
     except Exception:
         if backup:
-            os.rename(backup, destination)
+            os.rename(backup, existing)
         raise
     if backup:
-        _remove_tree(backup)
+        try:
+            _remove_tree(backup)
+        except OSError as e:
+            raise ReplacedProjectNotRemoved(backup, e) from e
 
 
 def import_project(zip_file_path, project_name, replace=False):
@@ -115,7 +136,7 @@ def import_project(zip_file_path, project_name, replace=False):
     :type zip_file_path: str
     :param project_name: The project name; must be a plain folder name (see logic_project_paths).
     :type project_name: str
-    :param replace: Replace an existing project folder of the same name.
+    :param replace: Replace the existing project of the same name (compared case-insensitively).
     :type replace: bool
     :return: True if the import was successful.
     :rtype: bool
@@ -123,6 +144,7 @@ def import_project(zip_file_path, project_name, replace=False):
     :raises InvalidProjectName: If the project name is not a plain folder name.
     :raises InvalidProjectArchive: If the archive is too large or has unsafe entry names.
     :raises FileExistsError: If the project folder exists and ``replace`` is False.
+    :raises ReplacedProjectNotRemoved: If the import succeeded but the old project could not be fully deleted.
     :raises FileNotFoundError: If the (aip) zip file does not exist.
     :raises zipfile.BadZipFile: If the file is not a valid (aip) zip file.
     :raises PermissionError: If there are issues with write permissions.
@@ -141,20 +163,24 @@ def import_project(zip_file_path, project_name, replace=False):
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             check_archive_members(zip_ref, abs_extract_to_path)
 
-            if os.path.lexists(abs_extract_to_path) and not replace:
-                raise FileExistsError(f"The project '{project_name}' already exists.")
+            existing = find_existing_project(project_name)
+            if existing and not replace:
+                raise FileExistsError(f"The project '{existing}' already exists.")
+            existing_path = project_dir(existing) if existing else None
 
             os.makedirs(root, exist_ok=True)
             staging = tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=root)
             try:
                 zip_ref.extractall(staging)
-                _swap_into_place(staging, abs_extract_to_path)
+                _swap_into_place(staging, abs_extract_to_path, existing_path)
+            except ReplacedProjectNotRemoved:
+                raise
             except Exception:
                 shutil.rmtree(staging, ignore_errors=True)
                 raise
 
         return True
-    except FileExistsError:
+    except (FileExistsError, ReplacedProjectNotRemoved):
         raise
     except FileNotFoundError:
         raise FileNotFoundError(f"The AIP file '{zip_file_path}' does not exist.")
