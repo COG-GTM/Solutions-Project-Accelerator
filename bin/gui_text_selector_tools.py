@@ -34,7 +34,7 @@ import uuid
 import cv2
 from paddleocr import PPStructure
 
-from bin.logic_linked_texts import GivenTextLink, LinkedText, TagnameParameterRelationship, TargetTextLink, contains_item_separator
+from bin.logic_linked_texts import LinkedText, LinkedTextDecodeError, TagnameParameterRelationship, contains_item_separator
 from bin.logic_llm_inference import UnifiedInference
 from bin.logic_text_document_llm_processors import TextDocumentLLMPreprocessor, TextDocumentLLMPostProcessor, TextDocumentLLMProcessor
 logging.getLogger().setLevel('INFO') # PaddleOCR Changes level
@@ -1551,7 +1551,7 @@ class TextSelectorTools(CanvasImage):
 
 
     def __highlight_approved_linked_texts(self):
-        approved_linked_texts = self.__db.get_all_approved_text_links_by_page_no(self.path,self.pno)
+        approved_linked_texts = self.__decodable_linked_texts(self.__db.get_all_approved_text_links_by_page_no(self.path,self.pno))
 
         # Filter out duplicate approved linked texts
         approved_linked_texts = self.__filter_approved_overlapping_with_approved(approved_linked_texts)
@@ -1859,7 +1859,7 @@ class TextSelectorTools(CanvasImage):
         accepted link.
         """
         # Get all approved linked texts for this page
-        approved_linked_texts = self.__db.get_all_approved_text_links_by_page_no(self.path, self.pno)
+        approved_linked_texts = self.__decodable_linked_texts(self.__db.get_all_approved_text_links_by_page_no(self.path, self.pno))
         
         if not approved_linked_texts:
             return unapproved_linked_texts
@@ -1924,7 +1924,7 @@ class TextSelectorTools(CanvasImage):
 
 
     def __highlight_unapproved_linked_texts(self):
-        unapproved_linked_texts = self.__db.get_all_unapproved_text_links_by_page_no(self.path,self.pno)
+        unapproved_linked_texts = self.__decodable_linked_texts(self.__db.get_all_unapproved_text_links_by_page_no(self.path,self.pno))
 
 
         # Filter out LLM-generated texts that overlap with non-LLM ones having same parameter details
@@ -2073,7 +2073,7 @@ class TextSelectorTools(CanvasImage):
 
 
     def __get_linked_text_regexes(self):
-        self.__linked_text_templates:list[LinkedText] = self.__db.get_all_linked_text_regexes()
+        self.__linked_text_templates:list[LinkedText] = self.__decodable_linked_texts(self.__db.get_all_linked_text_regexes())
         self.__find_template_text_regexes_text()
         self.__find_other_templates_using_llm()
         self.__underline_tagnames_text()
@@ -2121,7 +2121,7 @@ class TextSelectorTools(CanvasImage):
         """LLM list processing that runs in a separate thread"""
         
         # If there still llm generated unapproved linked texts, skip processing
-        unapproved_linked_texts = self.__db.get_all_unapproved_text_links_by_page_no(self.path,self.pno)
+        unapproved_linked_texts = self.__decodable_linked_texts(self.__db.get_all_unapproved_text_links_by_page_no(self.path,self.pno))
         for unapproved_linked_text in unapproved_linked_texts:
             unapproved_linked_text = self.__extract_linked_texts_data(unapproved_linked_text)
             if unapproved_linked_text.get('is_llm_generated', False):
@@ -2233,24 +2233,23 @@ class TextSelectorTools(CanvasImage):
 
 
     def __extract_linked_text(self, data):
-        linked_text = LinkedText(**data)
-
-        if data['links'] == 'None':
-            linked_text.links = None
-        else:
-            # Replace inf with float('inf') for safe parsing
-            links_str = data['links'].replace('(inf,', '(float("inf"),').replace(', inf)', ', float("inf"))')
-            linked_text.links = {k: TargetTextLink(**v) for k, v in eval(links_str).items()}
+        return LinkedText.from_dict(data)
 
 
-        if data['given_text'] == 'None':
-            linked_text.given_text = None
-        else:
-            # Replace inf with float('inf') for safe parsing
-            given_text_str = data['given_text'].replace('(inf,', '(float("inf"),').replace(', inf)', ', float("inf"))')
-            linked_text.given_text = {k: GivenTextLink(**v) for k, v in eval(given_text_str).items()}
-
-        return linked_text
+    def __decodable_linked_texts(self, linked_texts_rows):
+        """Drop stored linked text rows that cannot be decoded safely, logging each one."""
+        if not linked_texts_rows:
+            return linked_texts_rows
+        valid_rows = []
+        for row in linked_texts_rows:
+            try:
+                self.__extract_linked_texts_data(row)
+            except (LinkedTextDecodeError, KeyError, TypeError, AttributeError) as error:
+                row_id = row.get('id') if isinstance(row, dict) else None
+                logging.error(f"Rejected invalid linked text record {row_id!r}: {error}")
+                continue
+            valid_rows.append(row)
+        return valid_rows
     
     def __underline_tagnames_text(self):
         

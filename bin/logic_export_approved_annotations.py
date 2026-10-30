@@ -36,7 +36,7 @@ sys.path.insert(0, str(bin_dir))
 
 try:
     from bin.logic_internal_database import Database
-    from bin.logic_linked_texts import LinkedText, GivenTextLink, TargetTextLink
+    from bin.logic_linked_texts import LinkedText, GivenTextLink, TargetTextLink, LinkedTextDecodeError, decode_link_map
     from bin.logic_pdf_text import open_text
 except ImportError as e:
     print(f"Error importing required modules: {e}")
@@ -89,24 +89,16 @@ class ApprovedAnnotationExporter:
         :param data: Database record dictionary
         :return: LinkedText object
         """
-        import ast
-        
         linked_text = LinkedText(**{
             k: v for k, v in data.items() 
             if k in ['text', 'text_type', 'object_type', 'linked', 'reftype', 'link_type', 'axis']
         })
         
-        if data.get('links') and data['links'] != 'None':
-            linked_text.links = {
-                k: TargetTextLink(**v) 
-                for k, v in ast.literal_eval(data['links']).items()
-            }
+        if data.get('links'):
+            linked_text.links = decode_link_map(data['links'], TargetTextLink)
         
-        if data.get('given_text') and data['given_text'] != 'None':
-            linked_text.given_text = {
-                k: GivenTextLink(**v) 
-                for k, v in ast.literal_eval(data['given_text']).items()
-            }
+        if data.get('given_text'):
+            linked_text.given_text = decode_link_map(data['given_text'], GivenTextLink)
         
         return linked_text
     
@@ -265,7 +257,11 @@ class ApprovedAnnotationExporter:
         
         # Process each approved link
         for approved_link in approved_links:
-            link_data = self._extract_approved_link_data(approved_link)
+            try:
+                link_data = self._extract_approved_link_data(approved_link)
+            except LinkedTextDecodeError as error:
+                print(f"Skipping invalid approved link {approved_link.get('id')!r}: {error}")
+                continue
             
             # Collect all characters to highlight for this link
             chars_to_highlight = []

@@ -1,6 +1,6 @@
 import ast
 import copy
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from enum import Enum
 import logging
 import re
@@ -22,6 +22,80 @@ ITEM_SEPARATOR_CHARACTER_CLASS = r'\n\r' + _ITEM_SEPARATOR_GLYPHS
 def contains_item_separator(text):
     """Return True when the text runs across a list item or line boundary."""
     return any(char in ITEM_SEPARATOR_CHARACTERS for char in str(text))
+
+
+class LinkedTextDecodeError(ValueError):
+    """A stored linked text record could not be decoded safely."""
+
+
+_LITERAL_NAMES = {'inf': float('inf'), 'nan': float('nan')}
+_MAX_LITERAL_DEPTH = 16
+_MAX_LITERAL_LENGTH = 1_000_000
+
+
+def _literal_value(node, depth=0):
+    if depth > _MAX_LITERAL_DEPTH:
+        raise LinkedTextDecodeError('Stored link data is nested too deeply')
+    if isinstance(node, ast.Constant) and (node.value is None or isinstance(node.value, (str, bool, int, float))):
+        return node.value
+    if isinstance(node, ast.Name) and node.id in _LITERAL_NAMES:
+        return _LITERAL_NAMES[node.id]
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        operand = _literal_value(node.operand, depth + 1)
+        if isinstance(operand, bool) or not isinstance(operand, (int, float)):
+            raise LinkedTextDecodeError('Unary sign applied to a non-number')
+        return -operand if isinstance(node.op, ast.USub) else operand
+    if isinstance(node, ast.Tuple):
+        return tuple(_literal_value(e, depth + 1) for e in node.elts)
+    if isinstance(node, ast.List):
+        return [_literal_value(e, depth + 1) for e in node.elts]
+    if isinstance(node, ast.Dict):
+        if any(k is None for k in node.keys):
+            raise LinkedTextDecodeError('Dict unpacking is not allowed in stored link data')
+        return {_literal_value(k, depth + 1): _literal_value(v, depth + 1) for k, v in zip(node.keys, node.values)}
+    raise LinkedTextDecodeError('Unsupported expression in stored link data: %s' % type(node).__name__)
+
+
+def decode_link_map(raw, link_class):
+    """Decode a stored ``links``/``given_text`` value into ``{id: link_class}``.
+
+    The value is the ``str()`` of a dict of dataclass dicts (see ``LinkedText.dict``).
+    It is parsed as a pure literal (dicts, lists, tuples, strings, numbers, bools,
+    None, inf, nan); calls, attribute access and any other expression are rejected,
+    as are entries whose fields do not belong to ``link_class``.
+    """
+    if raw is None or raw == 'None':
+        return None
+    if isinstance(raw, dict):
+        value = raw
+    elif isinstance(raw, str):
+        if len(raw) > _MAX_LITERAL_LENGTH:
+            raise LinkedTextDecodeError('Stored link data is too large')
+        try:
+            value = _literal_value(ast.parse(raw, mode='eval').body)
+        except (SyntaxError, ValueError, RecursionError, MemoryError) as error:
+            if isinstance(error, LinkedTextDecodeError):
+                raise
+            raise LinkedTextDecodeError('Stored link data is not a valid literal') from error
+    else:
+        raise LinkedTextDecodeError('Stored link data has unexpected type %s' % type(raw).__name__)
+
+    if not isinstance(value, dict):
+        raise LinkedTextDecodeError('Stored link data must be a dict')
+
+    allowed = {f.name for f in fields(link_class)}
+    links = {}
+    for key, entry in value.items():
+        if not isinstance(key, str) or not isinstance(entry, dict):
+            raise LinkedTextDecodeError('Stored link data must map string ids to dicts')
+        unknown = set(entry) - allowed
+        if unknown or not all(isinstance(k, str) for k in entry):
+            raise LinkedTextDecodeError('Unknown %s fields: %s' % (link_class.__name__, sorted(map(str, unknown))))
+        try:
+            links[key] = link_class(**entry)
+        except TypeError as error:
+            raise LinkedTextDecodeError(str(error)) from error
+    return links
 
 
 class LinkedTextMatchError(Exception):
@@ -128,6 +202,24 @@ class LinkedText():
     def dict(self):
         return {k: str(v) if k == 'links' or k == 'given_text' else v
                 for k, v in asdict(self).items()}
+
+
+    @classmethod
+    def from_dict(cls, data):
+        """Rebuild a LinkedText from a stored record without evaluating any code.
+
+        Raises LinkedTextDecodeError when the record is not a valid linked text.
+        """
+        if not isinstance(data, dict):
+            raise LinkedTextDecodeError('Linked text record must be a dict')
+        allowed = {f.name for f in fields(cls)}
+        try:
+            linked_text = cls(**{k: v for k, v in data.items() if k in allowed})
+        except TypeError as error:
+            raise LinkedTextDecodeError(str(error)) from error
+        linked_text.links = decode_link_map(data.get('links'), TargetTextLink)
+        linked_text.given_text = decode_link_map(data.get('given_text'), GivenTextLink)
+        return linked_text
     
 
     def first_and_last_index(self):
@@ -1842,24 +1934,7 @@ class Linked_Texts():
             self.subobject = None
 
     def __extract_linked_text(self, data):
-
-
-        linked_text = LinkedText(**data)
-
-        if data['links'] == 'None':
-            linked_text.links = None
-        else:
-            links_str = data['links'].replace('(inf,', '(float("inf"),').replace(', inf)', ', float("inf"))')
-            linked_text.links = {k: TargetTextLink(**v) for k, v in eval(links_str).items()}
-
-
-        if data['given_text'] == 'None':
-            linked_text.given_text = None
-        else:
-            given_text_str = data['given_text'].replace('(inf,', '(float("inf"),').replace(', inf)', ', float("inf"))')
-            linked_text.given_text = {k: GivenTextLink(**v) for k, v in eval(given_text_str).items()}
-
-        return linked_text
+        return LinkedText.from_dict(data)
         
 
     
