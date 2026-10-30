@@ -7,10 +7,10 @@ import re
 import openpyxl
 import xlrd
 import warnings
-import cairosvg
 from PIL import Image
 
 from bin.logic_pdf_render import page_count
+from bin.logic_svg_safety import is_safe_svg
 
 
 class Validators:
@@ -169,8 +169,8 @@ class Validators:
         :returns: True if the file is a valid SVG or PNG file, False otherwise.
         :rtype: bool
 
-        This function checks if the given file at the specified path is a valid SVG or PNG file by attempting to open the file with the appropriate library.
-        If the file can be opened successfully, the function returns True; otherwise, it returns False.
+        PNG files are opened with Pillow. SVG files must be well-formed, self-contained (no external
+        references) and small enough to render; see ``bin.logic_svg_safety``.
 
         Example:
             >>> check_svg_or_png('image.svg')
@@ -179,10 +179,8 @@ class Validators:
         # noinspection PyBroadException
         _,extension = os.path.splitext(path)
         if extension.lower() == '.svg':
-            try:  # try to rasterise the svg
-                cairosvg.svg2png(path)
-            except:
-                return False  # not an svg
+            # parsed and rendered offline with size limits; external references are rejected
+            return is_safe_svg(path)
         else:
             try:  # try to open the image
                 Image.open(path)
