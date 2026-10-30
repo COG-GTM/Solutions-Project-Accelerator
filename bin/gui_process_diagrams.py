@@ -8,7 +8,6 @@ import tkinter as tk
 import math
 import uuid
 import warnings
-import cairosvg
 from PIL import Image, ImageDraw, ImageFilter
 import re
 from xml.etree import ElementTree as ET
@@ -29,6 +28,8 @@ try:
     from bin.gui_library_anchor_editor import LibraryAnchorEditor
     from bin.logic_library_anchor_overrides import get_default_store as _get_anchor_override_store
     from bin.gui_base64_icons import build_hmi_anchor_canvas
+    from bin.logic_safe_svg import (UnsafeSvgError, apply_color_placeholder, capped_output_size,
+                                    parse_svg, read_svg_file, svg_to_png)
 except Exception as e:
     from logic_internal_database import Database
     from logic_acm_data_handler import ACM_Data_Handler
@@ -43,6 +44,8 @@ except Exception as e:
     from gui_library_anchor_editor import LibraryAnchorEditor
     from logic_library_anchor_overrides import get_default_store as _get_anchor_override_store
     from gui_base64_icons import build_hmi_anchor_canvas
+    from logic_safe_svg import (UnsafeSvgError, apply_color_placeholder, capped_output_size,
+                                parse_svg, read_svg_file, svg_to_png)
 
 
 # Constants for anchor types
@@ -682,10 +685,17 @@ class ProcessControlElement:
         
 
 
+def svg_placeholder_image(width, height):
+    """Grey box shown instead of an SVG that could not be rendered safely"""
+    width, height = capped_output_size(width or 1, height or 1)
+    image = Image.new('RGBA', (max(int(width), 1), max(int(height), 1)), (110, 110, 110, 60))
+    ImageDraw.Draw(image).rectangle([0, 0, image.width - 1, image.height - 1], outline=DRAWING_DEFAULT_COLOR)
+    return image
+
+
 def restyle_svg_string(svg_string, stroke_color, fill_color, stroke_width):
     """Return the SVG restyled with the given stroke/fill colours and stroke width, or None if nothing changed"""
-    ET.register_namespace('', 'http://www.w3.org/2000/svg')
-    root = ET.fromstring(svg_string)
+    root = parse_svg(svg_string)
     changed = False
     for elem in root.iter():
         if elem is root:
@@ -719,9 +729,7 @@ class ProcessControlStaticGraphicElement(ProcessControlElement):
 
         # Parse the SVG string
         try:
-            # Add namespace to prevent ElementTree from adding ns0 prefixes
-            ET.register_namespace('', 'http://www.w3.org/2000/svg')
-            self.svg_string_root = ET.fromstring(self.svg_string)
+            self.svg_string_root = parse_svg(self.svg_string)
             # Get original dimensions
             root_width = float(self.svg_string_root.get('width', '100').replace('px', ''))
             root_height = float(self.svg_string_root.get('height', '100').replace('px', ''))
@@ -855,8 +863,8 @@ class ProcessControlStaticGraphicElement(ProcessControlElement):
         self.create_resize_handles(scale)
 
     def set_svg_string(self, svg_string):
+        self.svg_string_root = parse_svg(svg_string)
         self.svg_string = svg_string
-        self.svg_string_root = ET.fromstring(self.svg_string)
         # resize_svg re-applies svg_stroke_width to every element, so it has to
         # track the edited SVG or stroke width changes are rendered with the old value.
         self.__read_svg_stroke_width()
@@ -1393,26 +1401,14 @@ class ProcessControlStaticGraphicElement(ProcessControlElement):
 
     def __create_resized_svg_image(self, svg_string, color):
         """Create a new image from SVG at the current element size"""
-        # First, replace the color placeholder in the SVG
-        svg_with_color = svg_string.format(hex_color=color)
-        
-        # Resize the SVG to match the element dimensions
         scale = self.canvas.master.imscale if hasattr(self.canvas.master, 'imscale') else 1.0
-        resized_svg = self.resize_svg(
-            svg_with_color, 
-            scale=scale,
-        )
-        
-        # Convert string to bytes
-        byte_image = str.encode(resized_svg)
-        
-        # Render the SVG to PNG
-        png_data = cairosvg.svg2png(byte_image)
-
-        image = Image.open(BytesIO(png_data))
-        
-        # Create a PhotoImage from the PNG data
-        return image
+        try:
+            svg_with_color = apply_color_placeholder(svg_string, color)
+            resized_svg = self.resize_svg(svg_with_color, scale=scale)
+            return Image.open(BytesIO(svg_to_png(resized_svg)))
+        except Exception as e:
+            logging.warning(f"Could not render SVG for static graphic '{self.name}': {e}")
+            return svg_placeholder_image(self.width * scale, self.height * scale)
     
     
     def resize_svg(self, svg_string, scale, width=None, height=None, preserve_aspect_ratio=True):
@@ -2593,7 +2589,7 @@ class ProcessDisplayCanvas(tk.Frame):
                     continue
                 try:
                     restyled = restyle_svg_string(svg_string, stroke_color, fill_color, stroke_width)
-                except ET.ParseError:
+                except (ET.ParseError, UnsafeSvgError):
                     logging.exception(f"Could not restyle a graphic in {record.get('gfx_file_name')}")
                     continue
                 if restyled:
@@ -4141,7 +4137,11 @@ class ProcessDisplayCanvas(tk.Frame):
         if svg_path is None or not os.path.isfile(svg_path):
             logging.warning(f"SVG file for static graphic '{name}' not found at path: {svg_path}")
             return None
-        svg_string = open(svg_path, 'r').read()
+        try:
+            svg_string = read_svg_file(svg_path)
+        except (UnsafeSvgError, OSError, UnicodeDecodeError) as e:
+            logging.warning(f"Refusing SVG for static graphic '{name}' at path {svg_path}: {e}")
+            return None
 
         top_anchors = static_graphic['hmi_graphic']['extract_graphic']['top_anchors']
         bottom_anchors = static_graphic['hmi_graphic']['extract_graphic']['bottom_anchors']
@@ -4232,6 +4232,9 @@ class ProcessDisplayCanvas(tk.Frame):
             row = self.__acm_data_handler.get_display_object(acm_id)
             element = gfx_file_editor.add_acm_element(gfx_file_editor.element_map, acm_id, row)
             canvas_element = self.create_static_graphic_canvas_element(row['Name'], element)
+            if canvas_element is None:
+                gfx_file_editor.element_map.pop(row['Name'], None)
+                return
 
             self.add_element(canvas_element)
             self.__connect_elements()
@@ -4326,13 +4329,14 @@ class ProcessDisplayCanvas(tk.Frame):
 
 
     def __create_canvas_image_from_svg(self, svg: str, color=None, return_image=True):
-        out = BytesIO()
-        byte_image = str.encode(svg.format(hex_color=color))
-        cairosvg.svg2png(byte_image, write_to=out, scale=self.imscale)
+        try:
+            image = Image.open(BytesIO(svg_to_png(apply_color_placeholder(svg, color), scale=self.imscale)))
+        except Exception as e:
+            logging.warning(f"Could not render library SVG: {e}")
+            image = svg_placeholder_image(32 * self.imscale, 32 * self.imscale)
         if return_image:
-            return ImageTk.PhotoImage(Image.open(out))
-        else:
-            return Image.open(out)
+            return ImageTk.PhotoImage(image)
+        return image
 
     def create_smooth_line(self, *args, **kwargs):
         # Add anti-aliasing
