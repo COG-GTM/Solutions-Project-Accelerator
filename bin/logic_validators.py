@@ -7,10 +7,10 @@ import re
 import openpyxl
 import xlrd
 import warnings
-import cairosvg
 from PIL import Image
 
 from bin.logic_pdf_render import page_count
+from bin.logic_svg_render import svg_file_to_png
 
 
 class Validators:
@@ -180,7 +180,7 @@ class Validators:
         _,extension = os.path.splitext(path)
         if extension.lower() == '.svg':
             try:  # try to rasterise the svg
-                cairosvg.svg2png(path)
+                svg_file_to_png(path)
             except:
                 return False  # not an svg
         else:

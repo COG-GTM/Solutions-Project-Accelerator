@@ -8,7 +8,6 @@ import tkinter as tk
 import math
 import uuid
 import warnings
-import cairosvg
 from PIL import Image, ImageDraw, ImageFilter
 import re
 from xml.etree import ElementTree as ET
@@ -29,6 +28,7 @@ try:
     from bin.gui_library_anchor_editor import LibraryAnchorEditor
     from bin.logic_library_anchor_overrides import get_default_store as _get_anchor_override_store
     from bin.gui_base64_icons import build_hmi_anchor_canvas
+    from bin.logic_svg_render import svg_bytes_to_png
 except Exception as e:
     from logic_internal_database import Database
     from logic_acm_data_handler import ACM_Data_Handler
@@ -43,6 +43,7 @@ except Exception as e:
     from gui_library_anchor_editor import LibraryAnchorEditor
     from logic_library_anchor_overrides import get_default_store as _get_anchor_override_store
     from gui_base64_icons import build_hmi_anchor_canvas
+    from logic_svg_render import svg_bytes_to_png
 
 
 # Constants for anchor types
@@ -1407,7 +1408,7 @@ class ProcessControlStaticGraphicElement(ProcessControlElement):
         byte_image = str.encode(resized_svg)
         
         # Render the SVG to PNG
-        png_data = cairosvg.svg2png(byte_image)
+        png_data = svg_bytes_to_png(byte_image)
 
         image = Image.open(BytesIO(png_data))
         
@@ -4328,7 +4329,7 @@ class ProcessDisplayCanvas(tk.Frame):
     def __create_canvas_image_from_svg(self, svg: str, color=None, return_image=True):
         out = BytesIO()
         byte_image = str.encode(svg.format(hex_color=color))
-        cairosvg.svg2png(byte_image, write_to=out, scale=self.imscale)
+        svg_bytes_to_png(byte_image, write_to=out, scale=self.imscale)
         if return_image:
             return ImageTk.PhotoImage(Image.open(out))
         else:

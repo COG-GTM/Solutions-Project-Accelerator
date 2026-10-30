@@ -12,7 +12,6 @@ import os
 from tkinter import messagebox
 from PIL import Image, ImageTk
 
-import cairosvg
 from bin.logic_validators import Validators
 from tkinter.filedialog import askopenfilename
 from bin.gui_elements import rounded_image_button

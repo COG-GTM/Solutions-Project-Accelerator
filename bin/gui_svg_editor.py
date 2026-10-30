@@ -7,7 +7,6 @@ import xml.etree.ElementTree as ET
 import re
 import cv2
 import numpy as np
-import cairosvg
 from PIL import Image, ImageTk
 import io
 import os
@@ -19,6 +18,7 @@ try:
     from bin.gui_elements import button_array, custom_entry, hover_toggle_button, rounded_image_button
     from bin.gui_autoscrollbar import AutoScrollbar
     from bin.logic_validators import Validators
+    from bin.logic_svg_render import svg_bytes_to_png
     from bin.gui_base64_icons import (select_tool_blue, select_tool_dark_gray, select_tool_light_gray,
                                     hand_tool_blue, hand_tool_dark_gray, hand_tool_light_gray,
                                     pen_tool_blue, pen_tool_dark_gray, pen_tool_light_gray,
@@ -29,6 +29,7 @@ except ImportError as e:
     from gui_elements import button_array, custom_entry, hover_toggle_button, rounded_image_button
     from gui_autoscrollbar import AutoScrollbar
     from logic_validators import Validators
+    from logic_svg_render import svg_bytes_to_png
     from gui_base64_icons import (select_tool_blue, select_tool_dark_gray, select_tool_light_gray,
                                     hand_tool_blue, hand_tool_dark_gray, hand_tool_light_gray,
                                     pen_tool_blue, pen_tool_dark_gray, pen_tool_light_gray,
@@ -637,7 +638,7 @@ class SVGEditor:
             
     def _refresh_svg_image(self):
         
-        png_data = cairosvg.svg2png(bytestring=self.svg_string, scale=self.scale_factor)
+        png_data = svg_bytes_to_png(self.svg_string, scale=self.scale_factor)
         
         self.svg_image = Image.open(io.BytesIO(png_data))
 
@@ -648,7 +649,7 @@ class SVGEditor:
         self.canvas.tag_raise("selectable", "background")  # Ensure it appears above the background
         if self.selected_element:
             self.canvas.delete("selected_overlay")
-            png_data = cairosvg.svg2png(bytestring=self.selection_svg_string, scale=self.scale_factor)
+            png_data = svg_bytes_to_png(self.selection_svg_string, scale=self.scale_factor)
             self.selected_element_image_img = Image.open(io.BytesIO(png_data))
             self.selected_element_image = ImageTk.PhotoImage(self.selected_element_image_img)
             x, y, _, _ = self.canvas.coords(self.reference_point)  # Get the reference point coordinates
@@ -844,7 +845,7 @@ class SVGEditor:
         
         # Convert SVG to PNG image using CairoSVG
         try:
-            png_data = cairosvg.svg2png(bytestring=self.svg_string, scale=self.scale_factor)
+            png_data = svg_bytes_to_png(self.svg_string, scale=self.scale_factor)
             self.svg_image = Image.open(io.BytesIO(png_data))
             self.tk_image = ImageTk.PhotoImage(self.svg_image)
             
@@ -1281,7 +1282,7 @@ class SVGEditor:
                 
                 # Render the lightweight SVG quickly
                 try:
-                    png_data = cairosvg.svg2png(bytestring=self.selection_svg_string, scale=self.scale_factor)
+                    png_data = svg_bytes_to_png(self.selection_svg_string, scale=self.scale_factor)
                     self.selected_element_image_img = Image.open(io.BytesIO(png_data))
                     self.selected_element_image = ImageTk.PhotoImage(self.selected_element_image_img)
                     
@@ -1617,7 +1618,7 @@ class SVGEditor:
         
         xmin, ymin, viewbox_width, viewbox_height = self.svg_root.attrib['viewBox'].split(' ')
 
-        image_data = cairosvg.svg2png(bytestring=self.svg_string)
+        image_data = svg_bytes_to_png(self.svg_string)
         
         image = Image.open(io.BytesIO(image_data))
         
