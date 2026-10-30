@@ -61,6 +61,30 @@ class TestIncludeCondition:
         assert evaluate_include_condition('{Missing} = 0', {'Missing': None}) is False
         assert evaluate_include_condition('{Missing} = 0', {}) is False
 
+    @pytest.mark.parametrize('condition, value, expected', [
+        ('{Mode} = "1"', '1', False),
+        ('{Mode} <> "1"', '1', True),
+        ('{Mode} > "0"', '1', False),
+        ('{Mode} = 1', '1', True),
+        ('{SymbolStyle} = True', '2', False),
+        ('{SymbolStyle} = True', '1', True),
+        ('{SymbolStyle} = False', '0', True),
+        ('{SymbolStyle} = True', 'Auto', False),
+    ])
+    def test_types_are_not_coerced_across_kinds(self, condition, value, expected):
+        assert evaluate_include_condition(condition, {'Mode': value, 'SymbolStyle': value}) is expected
+
+    @pytest.mark.parametrize('condition', [
+        '(' * 200 + '{A} = 1' + ')' * 200,
+        'NOT ' * 200 + '{A} = 1',
+    ])
+    def test_deep_nesting_is_rejected(self, condition):
+        with pytest.raises(UnsafeExpressionError):
+            evaluate_include_condition(condition, {'A': '1'})
+
+    def test_moderate_nesting_is_allowed(self):
+        assert evaluate_include_condition('(' * 10 + '{A} = 1' + ')' * 10, {'A': '1'}) is True
+
     def test_callable_lookup(self):
         seen = []
         assert evaluate_include_condition('{A} = 1', lambda name: seen.append(name) or '1') is True

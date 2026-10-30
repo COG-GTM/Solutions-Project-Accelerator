@@ -13,6 +13,7 @@ __all__ = ['UnsafeExpressionError', 'condition_variable_names', 'evaluate_arithm
 
 _MAX_EXPRESSION_LENGTH = 1000
 _MAX_EXPONENT = 64
+_MAX_NESTING = 32
 _MAX_MAGNITUDE = 1e18
 
 
@@ -114,10 +115,9 @@ def _compare(left, op, right):
         if op in ('<>', '!='):
             return left is not right
         return False
-    if isinstance(left, bool) or isinstance(right, bool):
-        left, right = bool(left), bool(right)
-    elif isinstance(left, str) != isinstance(right, str):
-        left, right = str(left), str(right)
+    if isinstance(left, str) != isinstance(right, str):
+        # A quoted string never equals (or orders against) a number.
+        return op in ('<>', '!=')
     if op in ('=', '=='):
         return left == right
     if op in ('<>', '!='):
@@ -141,6 +141,7 @@ class _ConditionParser:
     def __init__(self, tokens, variables):
         self.tokens = tokens
         self.index = 0
+        self.depth = 0
         self.variables = variables
 
     def parse(self):
@@ -182,7 +183,12 @@ class _ConditionParser:
     def _not(self):
         if self._peek() == 'NOT':
             self._take()
-            return not bool(self._not())
+            self.depth += 1
+            if self.depth > _MAX_NESTING:
+                raise UnsafeExpressionError('Condition nested too deeply')
+            result = not bool(self._not())
+            self.depth -= 1
+            return result
         return self._comparison()
 
     def _comparison(self):
@@ -200,8 +206,12 @@ class _ConditionParser:
         if kind == 'var':
             return _coerce_parameter(self.variables(value) if callable(self.variables) else self.variables.get(value))
         if kind == 'lparen':
+            self.depth += 1
+            if self.depth > _MAX_NESTING:
+                raise UnsafeExpressionError('Condition nested too deeply')
             result = self._or()
             self._take('rparen')
+            self.depth -= 1
             return result
         raise UnsafeExpressionError(f'Unexpected token {value!r}')
 
@@ -224,7 +234,10 @@ def evaluate_include_condition(condition, variables):
     condition = str(condition)
     if len(condition) > _MAX_EXPRESSION_LENGTH:
         raise UnsafeExpressionError('Condition too long')
-    return _ConditionParser(_tokenize(condition), variables).parse()
+    try:
+        return _ConditionParser(_tokenize(condition), variables).parse()
+    except RecursionError:
+        raise UnsafeExpressionError('Condition nested too deeply')
 
 
 def condition_variable_names(condition):
