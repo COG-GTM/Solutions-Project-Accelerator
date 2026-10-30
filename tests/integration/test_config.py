@@ -118,3 +118,82 @@ class TestMissingKeysFallBackToDefaults:
         (tmp_config_home / "temp" / "config.ini").write_text(
             "[Window]\nOpenedPath = C:\\does\\not\\exist\n", encoding="utf-8")
         assert Config().get_opened_path() == ""
+
+
+class _FakeDpapi:
+    """Stands in for pywin32's win32crypt: reversible, but never stores the plaintext."""
+
+    @staticmethod
+    def CryptProtectData(data, description, *args):
+        return b'DPAPI:' + bytes(b ^ 0x5A for b in data)
+
+    @staticmethod
+    def CryptUnprotectData(blob, *args):
+        assert blob.startswith(b'DPAPI:')
+        return 'desc', bytes(b ^ 0x5A for b in blob[len(b'DPAPI:'):])
+
+
+@pytest.fixture
+def fake_dpapi(monkeypatch):
+    import sys
+    monkeypatch.setitem(sys.modules, 'win32crypt', _FakeDpapi)
+
+
+SQL_LOGIN = ('DRIVER={ODBC Driver 18 for SQL Server};SERVER=acm01;DATABASE=ACM;'
+             'UID=alice;PWD=Hunter2-acm;TrustServerCertificate=yes;')
+SECRET = 'Hunter2-acm'
+
+
+class TestSqlPasswordIsNotStoredInTheIni:
+    def _ini(self, home):
+        return (home / "temp" / "config.ini").read_text(encoding="utf-8")
+
+    def test_password_goes_to_the_dpapi_blob(self, tmp_config_home, fake_dpapi):
+        first = Config()
+        first.set_connection_string(SQL_LOGIN)
+        first.save()
+
+        ini = self._ini(tmp_config_home)
+        assert SECRET not in ini
+        assert 'PWD' not in ini
+        assert 'UID=alice' in ini
+        blob = (tmp_config_home / "temp" / "sql_password.dat").read_bytes()
+        assert SECRET.encode() not in blob
+
+        restored = Config().get_connection_string()
+        assert 'PWD=Hunter2-acm;' in restored
+        assert 'SERVER=acm01' in restored and 'TrustServerCertificate=yes' in restored
+
+    def test_legacy_plaintext_password_is_migrated_on_first_read(self, tmp_config_home, fake_dpapi):
+        (tmp_config_home / "temp" / "config.ini").write_text(
+            "[SQL]\nConnection string = " + SQL_LOGIN + "\n", encoding="utf-8")
+
+        assert Config().get_connection_string() == SQL_LOGIN
+        assert SECRET not in self._ini(tmp_config_home)
+        assert 'PWD=Hunter2-acm;' in Config().get_connection_string()
+
+    def test_windows_authentication_forgets_a_saved_password(self, tmp_config_home, fake_dpapi):
+        config = Config()
+        config.set_connection_string(SQL_LOGIN)
+        config.set_connection_string('DRIVER={x};SERVER=acm01;DATABASE=ACM;Trusted_Connection=yes;')
+        assert not (tmp_config_home / "temp" / "sql_password.dat").exists()
+
+    def test_clear_connection_string_removes_ini_entry_and_blob(self, tmp_config_home, fake_dpapi):
+        config = Config()
+        config.set_connection_string(SQL_LOGIN)
+        config.clear_connection_string()
+        config.save()
+
+        assert Config().get_connection_string() == ''
+        assert not (tmp_config_home / "temp" / "sql_password.dat").exists()
+
+    def test_without_dpapi_the_password_is_dropped_not_written(self, tmp_config_home, monkeypatch):
+        import sys
+        monkeypatch.setitem(sys.modules, 'win32crypt', None)
+        config = Config()
+        config.set_connection_string(SQL_LOGIN)
+        config.save()
+
+        assert SECRET not in self._ini(tmp_config_home)
+        assert not (tmp_config_home / "temp" / "sql_password.dat").exists()
+        assert 'PWD' not in Config().get_connection_string()

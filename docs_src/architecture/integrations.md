@@ -146,7 +146,9 @@ connection_url = URL.create("mssql+pyodbc",
 ```
 
 The connection string is a user setting, stored in the `[SQL]` section of
-`temp/config.ini` and edited through the database connection dialog.
+`temp/config.ini` and edited through the database connection dialog. A saved
+SQL Server login password is kept out of the ini file in a DPAPI-encrypted
+`temp/sql_password.dat` (see `logic_secret_store.py`).
 
 | Module | Role |
 | --- | --- |

@@ -131,10 +131,12 @@ the repository root from its own location:
 Beyond the frozen app, the installer adds the ACM libraries from
 `acm_libraries/`, the demo documents, `Ollama\ollama.exe` with its `lib`
 directory, a file association for `.aip` project files, and the Start menu and
-optional desktop shortcuts. Its `[Dirs]` section grants everyone full control
-over the directories the app writes to (`_internal\temp`, `_internal\projects`,
-`acm_libraries`, and the Ollama model store) because the install target is
-under `Program Files`.
+optional desktop shortcuts. Its `[Dirs]` section opens the directories the app
+writes to (`_internal\temp`, `_internal\projects`, `acm_libraries`, and the
+Ollama model store) for writing because the install target is under
+`Program Files`. `_internal\temp` gets `users-modify` rather than
+`everyone-full`, and `[InstallDelete]` removes `logfile.log*` written by older
+versions, which could contain the SQL Server password.
 
 ### Installed layout
 
