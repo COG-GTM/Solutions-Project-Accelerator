@@ -96,3 +96,14 @@ def test_safe_web_url_accepts_http_and_https(url):
 ])
 def test_safe_web_url_rejects_everything_else(url):
     assert safe_web_url(url) is None
+
+
+def test_relative_env_file_var_is_ignored(clean_env, tmp_path):
+    launch = tmp_path / "attacker_folder"
+    _write(launch / "spa.env", "SPA_GET_HELP_URL=\\\\127.0.0.1\\share\\x.exe\n")
+    clean_env.chdir(launch)
+    clean_env.setenv(ENV_FILE_VAR, "spa.env")
+    clean_env.setattr(logic_env_file, "__file__", str(tmp_path / "repo" / "bin" / "logic_env_file.py"))
+    assert all(p.is_absolute() for p in _candidates())
+    assert load_env_file() is None
+    assert "SPA_GET_HELP_URL" not in os.environ

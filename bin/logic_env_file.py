@@ -25,7 +25,8 @@ ENV_FILE_VAR = "SPA_ENV_FILE"
 def _candidates() -> list[Path]:
     paths: list[Path] = []
     explicit = os.environ.get(ENV_FILE_VAR)
-    if explicit:
+    # A relative path would resolve against the (untrusted) working directory.
+    if explicit and Path(explicit).is_absolute():
         paths.append(Path(explicit))
     if getattr(sys, "frozen", False):
         paths.append(Path(sys.executable).parent / ".env")
