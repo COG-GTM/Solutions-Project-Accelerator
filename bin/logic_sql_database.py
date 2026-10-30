@@ -253,7 +253,32 @@ def non_commit_db_connector(func, connection_string):
     return with_connection_
 
 
-def get_all_databases(server, user='', password='', use_windows_authentication=True):
+def tls_options(trust_server_certificate=False):
+    """
+    Connection string options that encrypt the connection and, unless explicitly
+    opted out, validate the SQL Server's TLS certificate.
+    :param trust_server_certificate: Skip server certificate validation (not recommended).
+    :type trust_server_certificate: bool
+    :rtype: str
+    """
+    return 'Encrypt=yes;TrustServerCertificate=' + ('yes' if trust_server_certificate else 'no') + ';'
+
+
+def trusts_server_certificate(connection_string):
+    """
+    Return True if the connection string disables TLS server certificate validation.
+    :param connection_string: An ODBC connection string.
+    :type connection_string: str
+    :rtype: bool
+    """
+    for option in (connection_string or '').split(';'):
+        key, _, value = option.partition('=')
+        if key.strip().lower() == 'trustservercertificate' and value.strip().lower() in ('yes', 'true'):
+            return True
+    return False
+
+
+def get_all_databases(server, user='', password='', use_windows_authentication=True, trust_server_certificate=False):
     """
     Retrieves a list of all databases on the specified SQL Server.
     :param server: The name or IP address of the SQL Server.
@@ -264,6 +289,8 @@ def get_all_databases(server, user='', password='', use_windows_authentication=T
     :type password: str
     :param use_windows_authentication: Flag indicating whether to use Windows authentication (optional).
     :type use_windows_authentication: bool
+    :param trust_server_certificate: Skip TLS server certificate validation (optional, not recommended).
+    :type trust_server_certificate: bool
     :return: A list of all databases on the SQL Server.
     :rtype: list[str]
     This function connects to the specified SQL Server and retrieves the names of all databases using the sys.databases table.
@@ -288,7 +315,8 @@ def get_all_databases(server, user='', password='', use_windows_authentication=T
 
     connection_string =   ('DRIVER={'+sql_drivers[0]+'};'+
                     'SERVER='+server+';'+
-                    'DATABASE=master;'+auth_string)
+                    'DATABASE=master;'+auth_string+
+                    tls_options(trust_server_certificate))
     cn = pyodbc.connect(connection_string, timeout=1)
     with cn.cursor() as cursor:
         cursor.execute("select name from sys.databases")
@@ -299,7 +327,7 @@ def get_all_databases(server, user='', password='', use_windows_authentication=T
 
 
 
-def build_connection_string(server, database, user='', password='', use_windows_authentication=True):
+def build_connection_string(server, database, user='', password='', use_windows_authentication=True, trust_server_certificate=False):
     """
     Builds a connection string for connecting to a SQL database.
 
@@ -313,6 +341,8 @@ def build_connection_string(server, database, user='', password='', use_windows_
     :type password: str
     :param use_windows_authentication: Flag indicating whether to use Windows authentication (optional).
     :type use_windows_authentication: bool
+    :param trust_server_certificate: Skip TLS server certificate validation (optional, not recommended).
+    :type trust_server_certificate: bool
     :return: The connection string.
     :rtype: str
 
@@ -337,7 +367,8 @@ def build_connection_string(server, database, user='', password='', use_windows_
 
     connection_string =   ('DRIVER={'+get_highest_sql_driver(sql_drivers)+'};'+
                     'SERVER='+server+';'+
-                    'DATABASE='+database+';'+auth_string)
+                    'DATABASE='+database+';'+auth_string+
+                    tls_options(trust_server_certificate))
     logging.info('SQL connection string: '+connection_string) 
     return connection_string
 

@@ -31,6 +31,7 @@ from bin.logic_secret_store import has_openai_key
 from .gui_menu import Custom_Menu
 from .logic_config import Config
 from .logic_logger import logging, handle_exception
+from .logic_sql_database import trusts_server_certificate
 from .logic_tools import  start_build_hmi, build_pages, create_alarms, export_images, export_reduced_images, find_pages_needing_hmi_displays, get_version_number, open_figures, start_build_plc
 from .logic_logix_designer import push_build_output_to_logix_designer, is_sdk_available, sdk_install_hint, LogixDesignerSdkNotFoundError
 from .logic_logix_echo import (
@@ -140,6 +141,10 @@ class MainGUI(ttk.Frame):
 
     def __connect_sql_db(self):
         if self.__connection_string:
+            if trusts_server_certificate(self.__connection_string):
+                logging.warning('Saved ACM connection skips SQL Server certificate validation '
+                                '(TrustServerCertificate=yes). Reconnect via Connect to Database '
+                                'to enable validation.')
             self.__set_connection_string()
 
 
