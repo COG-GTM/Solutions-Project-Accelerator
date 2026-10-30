@@ -1,6 +1,3 @@
-import ast
-import threading
-import astor
 import re
 import xml.etree.ElementTree as ET
 
@@ -9,10 +6,12 @@ try:
     from bin.logic_acm_data_handler import ACM_Data_Handler
     from bin.logic_acm_libraries_retrieval import acm_libraries_retrieval, get_library_file_path
     from bin.logic_acm_library_parser import acm_library_parser
+    from bin.logic_acm_expression import evaluate_acm_expression, evaluate_conditional_function
 except:
     from logic_acm_data_handler import ACM_Data_Handler
     from logic_acm_libraries_retrieval import acm_libraries_retrieval, get_library_file_path
     from logic_acm_library_parser import acm_library_parser
+    from logic_acm_expression import evaluate_acm_expression, evaluate_conditional_function
 
 def acm_parameter_handler(parameter_text, object_id, acm_data_handler:ACM_Data_Handler, project_name, passed_variables=None):
     """
@@ -32,12 +31,12 @@ def acm_parameter_handler(parameter_text, object_id, acm_data_handler:ACM_Data_H
     :type variables: dict, optional
     
     This function extracts variables from the parameter text, processes them using the ACM data handler and the object ID,
-    and executes the resulting expression. The variables are replaced in the expression using the `format_map` method.
-    The resulting expression is then executed safely using the `execute_code_safely` function.
+    and evaluates the expression with `evaluate_acm_expression`. Variable values are bound as data, never pasted
+    into the expression text. Raises `AcmExpressionError` for malformed or disallowed expressions.
     
     Example:
-        >>> acm_parameter_handler("Hello {name}!", 1, acm_data_handler, "Project")
-        'Hello World!'
+        >>> acm_parameter_handler("{Count} * 2", 1, acm_data_handler, "Project")
+        '8'
     """
 
     variables = extract_handle_bars(parameter_text)
@@ -57,12 +56,10 @@ def acm_parameter_handler(parameter_text, object_id, acm_data_handler:ACM_Data_H
         value = process_acm_variable(variable, object_id, acm_data_handler, project_name)
         variables[variable] = str(value)
 
-    expression = correct_condition(parameter_text)
-    expression = expression.format_map(variables)
+    result = str(evaluate_acm_expression(parameter_text, variables))
     if passed_variables is not None:
-        return str(execute_code_safely(expression, False)), variables
-    else:   
-        return str(execute_code_safely(expression, False))
+        return result, variables
+    return result
 
 
 def process_acm_variable(variable_name, object_id, acm_data_handler:ACM_Data_Handler, project_name, object_library_parser=None,shared_controllers=None):
@@ -160,93 +157,10 @@ def acm_function_Handler(func_elem:ET.Element, object_id, acm_data_handler:ACM_D
 
 
     if function_type == 'Conditional':
-        data = {}
-        condition_func = handle_conditional_function(func_elem, variables)
-        data = execute_code_safely(condition_func,True,data)
-        return str(data['condition_output'])
-
-
+        return str(evaluate_conditional_function(func_elem, variables))
 
     if function_type == 'Calculation':
-        expression = correct_condition(func_elem.find("Exp").text)
-        expression = remove_braces_with_parentheses(expression)
-        expression = expression.format_map(variables)
-        return str(execute_code_safely(expression, False))
-
-
-def handle_conditional_function(xml_element,variables):
-    
-    indent="    "
-    output='def func():\n'
-    for child in xml_element:
-        output = process_element(child, indent,output)
-
-    output = output.format_map(variables)
-
-    output +='\ncondition_output = func()'
-
-    return output
-
-
-def remove_braces_with_parentheses(text):
-    """
-    Remove curly braces {} if there are parentheses () between them.
-    
-    Args:
-        text (str): Input string to process
-        
-    Returns:
-        str: String with curly braces removed if parentheses are between them
-    """
-    # Pattern to match { followed by content containing (), then }
-    pattern = r'\{([^{}]*\([^)]*\)[^{}]*)\}'
-    
-    # Replace the matched pattern with just the content (without the braces)
-    result = re.sub(pattern, r'\1', text)
-    
-    return result
-
-# Alternative implementation using a more explicit approach
-def remove_braces_with_parentheses_explicit(text):
-    """
-    Alternative implementation that's more explicit about the logic.
-    """
-    result = []
-    i = 0
-    
-    while i < len(text):
-        if text[i] == '{':
-            # Find the matching closing brace
-            brace_count = 1
-            j = i + 1
-            content = ""
-            
-            while j < len(text) and brace_count > 0:
-                if text[j] == '{':
-                    brace_count += 1
-                elif text[j] == '}':
-                    brace_count -= 1
-                
-                if brace_count > 0:
-                    content += text[j]
-                j += 1
-            
-            # Check if content contains parentheses
-            if '(' in content and ')' in content:
-                # Remove the braces, keep the content
-                result.append(content)
-            else:
-                # Keep the braces
-                result.append(text[i:j])
-            
-            i = j
-        else:
-            result.append(text[i])
-            i += 1
-    
-    return ''.join(result)
-
-
+        return str(evaluate_acm_expression(func_elem.find("Exp").text, variables))
 
 
 def extract_all_varibles(text, acm_data_handler, object_id):
@@ -273,157 +187,3 @@ def extract_handle_bars(text):
     for match in matches:
         variables[match.strip().strip('{').strip('}')] = ""
     return variables
-
-        
-
-
-def correct_condition(condition):
-    logic_statements = [
-                        [' and ', ' and '],
-                        [' or ', ' or '],
-                        [' not ', ' not '],
-                        [r'(?<=[^a-zA-Z0-9_])int\(', ' int('],
-                        [r'(?<=[^a-zA-Z0-9_])abs\(', ' abs('],
-                        [r'(?<=[^a-zA-Z0-9_])round\(', ' round('],
-                        [r'(?<=[^a-zA-Z0-9_])length\(', ' len('],
-                        ]
-
-    for statement in logic_statements:
-        pattern = re.compile(statement[0], re.IGNORECASE)
-        condition= pattern.sub(statement[1], condition)
-
-
-    condition = condition.replace('=','==')
-    condition = condition.replace('round(','int')
-    condition = condition.replace('length(','len')
-    condition = condition.replace('<>','!=')
-    condition = condition.replace('&',' + ')
-
-    return condition
-
-
-def process_element(element, indent, output):
-    if element.tag == "ifcond":
-        # Extract the condition value
-        condition = element.text.strip()
-        if condition:
-            # If condition is not empty, evaluate the children
-            corrected_condition = correct_condition(condition)
-            output +=  f"{indent}if {corrected_condition}:\n"
-            indent += "    "
-            for child in element:
-                output = process_element(child, indent, output)
-            if 'Value' in element.attrib:
-                output +=f"{indent}return {element.get("Value")}\n"
-            indent = indent[:-4]  # Remove indentation
-        else:
-            # If condition is empty, evaluate the else block if it exists
-            for child in element:
-                if child.tag == "else":
-                    output = process_element(child, indent, output)
-    elif element.tag == "else":
-        # Evaluate the else block
-        output +=f"{indent}else:\n"
-        indent += "    "
-        for child in element:
-            output = process_element(child, indent, output)
-        if 'Value' in element.attrib:
-            output +=f"{indent}return {element.get("Value")}\n"
-        indent = indent[:-4]  # Remove indentation
-    else:
-        # Evaluate other elements (e.g., <ifcond Value="True">)
-        value = element.get("Value")
-        output +=f"{indent}return {value}"
-
-    return output
-
-
-class CodeSanitizer:
-   def remove_imports(self, code: str) -> str:
-       """Remove all import statements from the code to prevent malicious code execution"""
-       tree = ast.parse(code)
-       new_body = [
-           node
-           for node in tree.body
-           if not isinstance(node, (ast.Import, ast.ImportFrom))
-       ]
-       new_tree = ast.Module(body=new_body)
-       return astor.to_source(new_tree).strip()
-   
-def watchdog():
-    raise TimeoutError("Function timed out")
-
-def execute_code_safely(code: str, is_exec=False, data=None):
-    sanitizer = CodeSanitizer()
-    sanitized_code = sanitizer.remove_imports(code)
-    # Define a restricted namespace
-    safe_globals = {
-        "__builtins__": {
-            "len": len,
-            "int": int,
-            "min": min,
-            "max": max,
-            "abs": abs,
-        }
-    }
-    if data is not None:
-        safe_locals = {}
-    else:
-        safe_locals = data
-    
-    # Set a time limit for execution
-    # Register the timeout handler
-    # Create a Timer that will call the watchdog function after the specified delay
-    alarm = threading.Timer(2, watchdog)
-    alarm.start()
-    try:
-        if is_exec:
-            exec(sanitized_code, safe_globals, safe_locals)
-            return safe_locals
-        else:
-            return eval(sanitized_code, safe_globals, safe_locals)
-    except TimeoutError as e:
-        return str(e)
-    except Exception as e:
-        return f"Error during execution: {e}"
-    finally:
-        # Cancel the timer if the function returned before the timeout
-        alarm.cancel()
-    
-
-
-    
-
-if __name__ == "__main__": 
-
-    # Example XML string
-    test_0 = """<Func Name="fn_EvtLimit" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Numeric">
-            <ifcond Value="32767"><![CDATA['{EventLogging_Style}' = 'EdgeGateway']]></ifcond>
-            <else Value="15" />
-        </Func>"""
-
-
-
-    test_1 = '''<Func Name="fn_Redundant" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Bool">
-            <ifcond Value="1"><![CDATA[{Has_Redundant} AND {Cfg_HasSecNotRdyAlm}]]></ifcond>
-            <else Value="0" />
-        </Func>'''
-
-    test_2 = '''<Func Name="fn_Redundant" Scope="Object" CLXDep="true" AADDep="false" FType="Conditional" ResType="Bool">
-            <ifcond><![CDATA[True]]><ifcond Value="True"><![CDATA[True]]></ifcond><ifcond Value="True"><![CDATA[False]]></ifcond><else Value="True" /></ifcond>
-            <else Value="False" />
-        </Func>'''
-
-    test_3 = '''<Func Name="fn_Connection_IO" Scope="Object" CLXDep="true" AADDep="false" FType="Calculation" ResType="Bool">
-            <Exp><![CDATA[{IO_Map_Strategy}=5]]></Exp>
-        </Func>'''
-
-    acm_db = ACM_Data_Handler(r'DRIVER={ODBC Driver 18 for SQL Server};SERVER=1TV0VV3\SQLACM;DATABASE=ACM;Trusted_Connection=yes;TrustServerCertificate=yes;')
-    acm_db.set_project_id("9")
-    print(process_acm_variable('fn_EvtLimit','6545',acm_db,'dfsdfvs'))
-    print(acm_function_Handler(test_0, '4998', acm_db))
-    print(acm_function_Handler(test_3, '4998', acm_db))
-
-            
-
-
