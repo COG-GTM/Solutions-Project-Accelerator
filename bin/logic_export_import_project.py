@@ -1,5 +1,6 @@
 import zipfile
 import os
+import re
 from configparser import ConfigParser
 from io import StringIO
 
@@ -118,5 +119,11 @@ def read_project_name_from_zip(zip_path):
     config_parser = ConfigParser()
     config_parser.read_file(config_content)
 
-    # Convert parsed data to a dictionary
-    return config_parser['DEFAULT']['Name']
+    project_name = config_parser['DEFAULT']['Name']
+
+    # Same rule as Validators.project_name_validator. The name becomes a folder under
+    # ./projects/ and is later passed to the ACM console, so refuse anything else.
+    if not re.fullmatch(r'[\w. ]+', project_name) or not project_name.strip(' .'):
+        raise ValueError(f"Invalid project name {project_name!r} in project archive")
+
+    return project_name

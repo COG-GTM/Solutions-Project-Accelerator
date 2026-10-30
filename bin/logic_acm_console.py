@@ -3,8 +3,10 @@ import os
 import re
 import subprocess
 import tempfile
+import unicodedata
 import uuid
 import time
+from xml.sax.saxutils import escape as _xml_escape
 
 import pandas as pd
 
@@ -202,6 +204,148 @@ create_objects_acm_xml = '''
 </InstanceData>
 '''
 
+
+ACM_IDENTIFIER_PATTERN = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+
+_XML_ATTR_ENTITIES = {'"': '&quot;', "'": '&apos;', '\n': '&#10;', '\r': '&#13;', '\t': '&#9;'}
+
+# Characters XML 1.0 forbids outright, even as character references
+_XML_INVALID_CHARS = re.compile('[^\t\n\r\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]')
+
+
+def xml_attr(value):
+    """
+    Escape a value for use inside a double-quoted XML attribute of an ACM InstanceData file.
+    Characters that are not allowed anywhere in XML 1.0 (e.g. U+0001) are dropped.
+
+    :param value: The value to escape
+    :type value: Any
+    :return: The escaped text
+    :rtype: str
+    """
+    text = _XML_INVALID_CHARS.sub('', '' if value is None else str(value))
+    return _xml_escape(text, _XML_ATTR_ENTITIES)
+
+
+def acm_identifier(value, kind='Name'):
+    """
+    Return ``value`` if it is a valid ACM / Logix object name, otherwise raise.
+
+    :param value: The controller or object name to check
+    :type value: str
+    :param kind: What the value is, used in the error message
+    :type kind: str
+    :return: ``value`` unchanged
+    :rtype: str
+    :raises ValueError: If the name contains anything but letters, digits and underscores
+        or starts with a digit
+    """
+    if not isinstance(value, str) or not ACM_IDENTIFIER_PATTERN.fullmatch(value):
+        raise ValueError(f'{kind} {value!r} is not a valid ACM name. Use only letters, digits and '
+                         'underscores, starting with a letter or underscore.')
+    return value
+
+
+def acm_script_argument(value, kind='Value'):
+    """
+    Return ``value`` if it can be placed inside a double-quoted ACM console script argument.
+
+    A double quote ends the argument and a line break ends the command, so either would let
+    the value add its own ACM console commands.
+
+    :param value: The project name, path or other text to check
+    :type value: str
+    :param kind: What the value is, used in the error message
+    :type kind: str
+    :return: ``value`` as text
+    :rtype: str
+    :raises ValueError: If the value contains a double quote or a control / line separator character
+    """
+    text = '' if value is None else str(value)
+    if '"' in text or any(unicodedata.category(c) in ('Cc', 'Cf', 'Zl', 'Zp') for c in text):
+        raise ValueError(f'{kind} {value!r} contains a quote or control character and cannot be '
+                         'passed to the ACM console.')
+    return text
+
+
+def render_acm_command(template, **arguments):
+    """
+    Fill an ACM console script template after checking every argument.
+
+    ``controller_name`` must be a valid ACM name (or empty where the command allows it);
+    every other argument must be safe inside a double-quoted script argument.
+
+    :param template: One of the ACM console command templates
+    :type template: str
+    :return: The script text
+    :rtype: str
+    :raises ValueError: If an argument could break out of its quoted script argument
+    """
+    for key, value in arguments.items():
+        if key == 'controller_name' and value != '':
+            acm_identifier(value, 'Controller name')
+        else:
+            acm_script_argument(value, key.replace('_', ' ').capitalize())
+    return template.format(**arguments)
+
+
+def validate_acm_object_names(names):
+    """
+    Check every object name before any ACM script or XML file is written.
+
+    :param names: The object names to check
+    :type names: Iterable[str]
+    :raises ValueError: Listing every invalid name
+    """
+    invalid = [name for name in names
+               if not isinstance(name, str) or not ACM_IDENTIFIER_PATTERN.fullmatch(name)]
+    if invalid:
+        raise ValueError('These control module names are not valid ACM names and were not sent to the '
+                         'ACM console (use only letters, digits and underscores, starting with a letter '
+                         'or underscore): ' + ', '.join(repr(name) for name in invalid))
+
+
+def render_objects_xml(objects, solution, catalog_number, major_revision, minor_revision):
+    """
+    Build the ``InstanceData`` XML used by CREATEOBJECTS.
+
+    :param objects: Object name -> {'task', 'program', 'description'}
+    :type objects: dict
+    :return: The XML document
+    :rtype: str
+    :raises ValueError: If any object name is not a valid ACM name
+    """
+    validate_acm_object_names(objects.keys())
+
+    objects_xml = ''
+    for object_name, obj in objects.items():
+        objects_xml += create_object_acm_xml.format(
+            name = xml_attr(object_name),
+            description = xml_attr(obj['description']),
+            task = xml_attr(obj['task']),
+            program = xml_attr(obj['program']),
+            solution = xml_attr(solution),
+            catalog_number = xml_attr(catalog_number),
+            major_revision = xml_attr(major_revision),
+            minor_revision = xml_attr(minor_revision)
+        )
+    return create_objects_acm_xml.format(objects_xml = objects_xml)
+
+
+def render_instance_xml(template, description, solution, catalog_number, major_revision, minor_revision):
+    """
+    Fill the project / controller ``InstanceData`` XML template with escaped values.
+
+    :return: The XML document
+    :rtype: str
+    """
+    return template.format(
+        description = xml_attr(description),
+        solution = xml_attr(solution),
+        catalog_number = xml_attr(catalog_number),
+        major_revision = xml_attr(major_revision),
+        minor_revision = xml_attr(minor_revision)
+    )
 
 
 
@@ -543,7 +687,7 @@ class ACM_Console:
         fd, extended_script = tempfile.mkstemp(suffix = '.xml')
         os.close(fd)
         with open(extended_script, "w") as text_file:
-            text_file.write(create_project_acm_xml.format(
+            text_file.write(render_instance_xml(create_project_acm_xml,
                 description = self.__project_name,
                 solution = solution,
                 catalog_number = catalog_number,
@@ -555,7 +699,7 @@ class ACM_Console:
         fd, script = tempfile.mkstemp(suffix = '.tp')
         os.close(fd)
         with open(script, "w") as text_file:
-            text_file.write(create_project_acm_command.format(
+            text_file.write(render_acm_command(create_project_acm_command,
                 project_name = self.__project_name,
                 extended_script_path = extended_script
                 ))
@@ -645,7 +789,7 @@ class ACM_Console:
         fd_project, project_extended_script = tempfile.mkstemp(suffix = '.xml')
         os.close(fd_project)
         with open(project_extended_script, "w") as text_file:
-            text_file.write(create_project_acm_xml.format(
+            text_file.write(render_instance_xml(create_project_acm_xml,
                 description = self.__project_name,
                 solution = solution,
                 catalog_number = catalog_number,
@@ -657,7 +801,7 @@ class ACM_Console:
         fd_controller, controller_extended_script = tempfile.mkstemp(suffix = '.xml')
         os.close(fd_controller)
         with open(controller_extended_script, "w") as text_file:
-            text_file.write(create_controller_acm_xml.format(
+            text_file.write(render_instance_xml(create_controller_acm_xml,
                 description = self.__project_name,
                 solution = controller_library_array[0],
                 catalog_number = controller_library_array[1],
@@ -670,12 +814,12 @@ class ACM_Console:
         # Build batch commands
         batch_commands = []
         
-        batch_commands.append(create_project_batch_command.format(
+        batch_commands.append(render_acm_command(create_project_batch_command,
             project_name = self.__project_name,
             extended_script_path = project_extended_script
         ))
         
-        batch_commands.append(create_controller_batch_command.format(
+        batch_commands.append(render_acm_command(create_controller_batch_command,
             project_name = self.__project_name,
             controller_name = controller_name,
             extended_script_path = controller_extended_script
@@ -750,7 +894,7 @@ class ACM_Console:
         fd, extended_script = tempfile.mkstemp(suffix = '.xml')
         os.close(fd)
         with open(extended_script, "w") as text_file:
-            text_file.write(create_controller_acm_xml.format(
+            text_file.write(render_instance_xml(create_controller_acm_xml,
                 description = self.__project_name,
                 solution = solution,
                 catalog_number = catalog_number,
@@ -760,7 +904,7 @@ class ACM_Console:
         fd, script = tempfile.mkstemp(suffix = '.tp')
         os.close(fd)
         with open(script, "w") as text_file:
-            text_file.write(create_controller_acm_command.format(
+            text_file.write(render_acm_command(create_controller_acm_command,
                 project_name = self._get_acm_project_name(),
                 controller_name = self.DEFAULT_CONROLLER_NAME.format(project_name = self.__project_name),
                 extended_script_path = extended_script
@@ -824,7 +968,7 @@ class ACM_Console:
         fd_controller, controller_extended_script = tempfile.mkstemp(suffix = '.xml')
         os.close(fd_controller)
         with open(controller_extended_script, "w") as text_file:
-            text_file.write(create_controller_acm_xml.format(
+            text_file.write(render_instance_xml(create_controller_acm_xml,
                 description = self.__project_name,
                 solution = solution,
                 catalog_number = catalog_number,
@@ -838,7 +982,7 @@ class ACM_Console:
         # Build batch commands
         batch_commands = []
         
-        batch_commands.append(create_controller_batch_command.format(
+        batch_commands.append(render_acm_command(create_controller_batch_command,
             project_name = acm_project_name,
             controller_name = controller_name,
             extended_script_path = controller_extended_script
@@ -891,6 +1035,8 @@ class ACM_Console:
                 else:
                     processed_objects[regex['library'][0]]['objects'].update(new_objects)
 
+            validate_acm_object_names(name for data in processed_objects.values() for name in data['objects'])
+
             # Create objects batch commands and XML files for each library type
             for _, data in processed_objects.items():
                 if len(data['objects']) == 0:
@@ -900,23 +1046,13 @@ class ACM_Console:
                 fd_objects, objects_extended_script = tempfile.mkstemp(suffix = '.xml')
                 os.close(fd_objects)
                 with open(objects_extended_script, "w") as text_file:
-                    objects_xml = ''
-                    for object_name, obj in data['objects'].items():
-                        objects_xml += create_object_acm_xml.format(
-                            name = object_name,
-                            description = obj['description'],
-                            task = obj['task'],
-                            program = obj['program'],
-                            solution = data['solution'],
-                            catalog_number = data['catalog_number'],
-                            major_revision = data['major_revision'],
-                            minor_revision = data['minor_revision']
-                        )
-                    text_file.write(create_objects_acm_xml.format(
-                        objects_xml = objects_xml
-                    ))
+                    text_file.write(render_objects_xml(data['objects']
+                                                        , data['solution']
+                                                        , data['catalog_number']
+                                                        , data['major_revision']
+                                                        , data['minor_revision']))
 
-                batch_commands.append(create_objects_batch_command.format(
+                batch_commands.append(render_acm_command(create_objects_batch_command,
                     project_name = acm_project_name,
                     controller_name = controller_name,
                     extended_script_path = objects_extended_script
@@ -1031,6 +1167,8 @@ class ACM_Console:
 
             total_objects = total_objects + len(new_objects)
 
+        validate_acm_object_names(name for data in processed_objects.values() for name in data['objects'])
+
         number_objects_processed = 0
         for _, data in processed_objects.items():
             
@@ -1131,6 +1269,8 @@ class ACM_Console:
 
         all_processed_objects_names = []
 
+        validate_acm_object_names(name for data in processed_objects.values() for name in data['objects'])
+
         # Create objects batch commands and XML files for each library type
         for _, data in processed_objects.items():
             if len(data['objects']) == 0:
@@ -1140,26 +1280,16 @@ class ACM_Console:
             fd_objects, objects_extended_script = tempfile.mkstemp(suffix = '.xml')
             os.close(fd_objects)
             with open(objects_extended_script, "w") as text_file:
-                objects_xml = ''
-                for object_name, obj in data['objects'].items():
-                    if object_name in all_processed_objects_names:
-                        continue
-                    objects_xml += create_object_acm_xml.format(
-                        name = object_name,
-                        description = obj['description'],
-                        task = obj['task'],
-                        program = obj['program'],
-                        solution = data['solution'],
-                        catalog_number = data['catalog_number'],
-                        major_revision = data['major_revision'],
-                        minor_revision = data['minor_revision']
-                    )
-                    all_processed_objects_names.append(object_name)
-                text_file.write(create_objects_acm_xml.format(
-                    objects_xml = objects_xml
-                ))
+                new_objects = {object_name: obj for object_name, obj in data['objects'].items()
+                               if object_name not in all_processed_objects_names}
+                all_processed_objects_names.extend(new_objects.keys())
+                text_file.write(render_objects_xml(new_objects
+                                                   , data['solution']
+                                                   , data['catalog_number']
+                                                   , data['major_revision']
+                                                   , data['minor_revision']))
 
-            batch_commands.append(create_objects_batch_command.format(
+            batch_commands.append(render_acm_command(create_objects_batch_command,
                 project_name = self._get_acm_project_name(),
                 controller_name = controller_name,
                 extended_script_path = objects_extended_script
@@ -1280,6 +1410,8 @@ class ACM_Console:
         :return: None
         :rtype: None
         """
+        validate_acm_object_names(objects.keys())
+
         textbox_entry = 'Creating '+ catalog_number + ' ' + solution
         label_text = 'Creating '+ catalog_number + ' ' + solution
         percentage = (number_objects_processed/total_number_objects)*100.0
@@ -1296,26 +1428,12 @@ class ACM_Console:
             fd, extended_script = tempfile.mkstemp(suffix = '.xml')
             os.close(fd)
             with open(extended_script, "w") as text_file:
-                objects_xml = ''
-                for object_name, obj in batch.items():
-                    objects_created = objects_created +'\n'+ object_name + ','
-                    objects_xml += create_object_acm_xml.format(
-                        name = object_name,
-                        description = obj['description'],
-                        task = obj['task'],
-                        program = obj['program'],
-                        solution = solution,
-                        catalog_number = catalog_number,
-                        major_revision = major_revision,
-                        minor_revision = minor_revision
-                    )
-                text_file.write(create_objects_acm_xml.format(
-                    objects_xml = objects_xml
-                ))
+                objects_created = ''.join('\n' + object_name + ',' for object_name in batch)
+                text_file.write(render_objects_xml(batch, solution, catalog_number, major_revision, minor_revision))
             fd, script = tempfile.mkstemp(suffix = '.tp')
             os.close(fd)
             with open(script, "w") as text_file:
-                text_file.write(create_objects_acm_command.format(
+                text_file.write(render_acm_command(create_objects_acm_command,
                     project_name = self._get_acm_project_name(),
                     controller_name = controller_name,
                     extended_script_path = extended_script
@@ -1364,6 +1482,8 @@ class ACM_Console:
         
         if not objects_by_library:
             return number_objects_processed, False
+
+        validate_acm_object_names(name for data in objects_by_library.values() for name in data['objects'])
             
         textbox_entry = 'Creating Objects in batch mode'
         label_text = 'Batch Creating Objects'
@@ -1383,23 +1503,13 @@ class ACM_Console:
             fd_objects, objects_extended_script = tempfile.mkstemp(suffix = '.xml')
             os.close(fd_objects)
             with open(objects_extended_script, "w") as text_file:
-                objects_xml = ''
-                for object_name, obj in data['objects'].items():
-                    objects_xml += create_object_acm_xml.format(
-                        name = object_name,
-                        description = obj['description'],
-                        task = obj['task'],
-                        program = obj['program'],
-                        solution = data['solution'],
-                        catalog_number = data['catalog_number'],
-                        major_revision = data['major_revision'],
-                        minor_revision = data['minor_revision']
-                    )
-                text_file.write(create_objects_acm_xml.format(
-                    objects_xml = objects_xml
-                ))
+                text_file.write(render_objects_xml(data['objects']
+                                                    , data['solution']
+                                                    , data['catalog_number']
+                                                    , data['major_revision']
+                                                    , data['minor_revision']))
 
-            batch_commands.append(create_objects_batch_command.format(
+            batch_commands.append(render_acm_command(create_objects_batch_command,
                 project_name = self._get_acm_project_name(),
                 controller_name = controller_name,
                 extended_script_path = objects_extended_script
@@ -1469,7 +1579,7 @@ class ACM_Console:
         fd, script = tempfile.mkstemp(suffix = '.tp')
         os.close(fd)
         with open(script, "w") as text_file:
-            text_file.write(build_plc_acm_command.format(
+            text_file.write(render_acm_command(build_plc_acm_command,
                 project_name = self._get_acm_project_name(),
                 controller_name = controller_name,
                 output_path = output_path + '\\' + controller_name + '.L5X'
@@ -1513,7 +1623,7 @@ class ACM_Console:
             fd, script = tempfile.mkstemp(suffix = '.tp')
             os.close(fd)
             with open(script, "w") as text_file:
-                text_file.write(build_plc_acm_command.format(
+                text_file.write(render_acm_command(build_plc_acm_command,
                     project_name = self._get_acm_project_name(),
                     controller_name = controller_name,
                     output_path = output_path + '\\' + controller_name + '.ACD'
@@ -1597,7 +1707,7 @@ class ACM_Console:
         fd, script = tempfile.mkstemp(suffix = '.tp')
         os.close(fd)
         with open(script, "w") as text_file:
-            text_file.write(build_hmi_acm_command.format(
+            text_file.write(render_acm_command(build_hmi_acm_command,
                 project_name = self._get_acm_project_name(),
                 ft_view_display_object = ft_view_display_object,
                 output_path = output_path
@@ -1637,7 +1747,7 @@ class ACM_Console:
         fd, script = tempfile.mkstemp(suffix = '.tp')
         os.close(fd)
         with open(script, "w") as text_file:
-            text_file.write(build_alarms_acm_command.format(
+            text_file.write(render_acm_command(build_alarms_acm_command,
                 project_name = self._get_acm_project_name(),
                 controller_name = controller_name,
                 alarm_object = alarm_object,
