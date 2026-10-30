@@ -10,6 +10,7 @@ import pandas as pd
 
 from bin.logic_internal_database import Database
 from bin.logic_acm_data_handler import ACM_Data_Handler
+from bin.logic_safe_regex import match_object_names
 
 
 class LogFileMonitor:
@@ -1199,7 +1200,7 @@ class ACM_Console:
 
 
     def search_objects(self, regex_string, internal_db_only_df):
-        return internal_db_only_df[internal_db_only_df['Name'].str.match(regex_string)]
+        return internal_db_only_df[match_object_names(internal_db_only_df['Name'], regex_string)]
 
 
     
