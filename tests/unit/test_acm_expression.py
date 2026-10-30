@@ -57,6 +57,7 @@ class TestExpressions:
         assert evaluate_acm_expression("'a\\'b'") == "a'b"
         assert evaluate_acm_expression("'c:\\\\dir'") == "c:\\dir"
         assert evaluate_acm_expression("'{P}'", {"P": "x\\' + 1 + '"}) == "x\\' + 1 + '"
+        assert evaluate_acm_expression("'C:\\{Folder}'", {"Folder": "records"}) == "C:\\records"
 
     def test_oversized_parameter_value_raises(self):
         with pytest.raises(AcmExpressionError):

@@ -173,7 +173,7 @@ def translate(expression, variables=None):
             i = placeholder.end()
             continue
         if quote:
-            if ch == "\\" and i + 1 < len(expression) and expression[i + 1] not in "\r\n":
+            if ch == "\\" and i + 1 < len(expression) and expression[i + 1] not in "\r\n{":
                 out.append(expression[i:i + 2])
                 i += 2
                 continue
