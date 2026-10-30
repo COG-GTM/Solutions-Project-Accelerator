@@ -18,6 +18,7 @@ from bin.logic_acm_library_parser import acm_library_parser
 from bin.logic_config import Config
 from bin.logic_extracted_logic_to_rockwell_code import LogicToRockwellConverter
 from bin.logic_internal_database import Database
+from bin import logic_safe_regex as safe_regex
 from bin.logic_linked_texts import LinkedText, TagnameParameterRelationship, GivenTextLink, TargetTextType
 from bin.logic_llm_inference import UnifiedInference
 from bin.gui_libary_rules_view import acm_libraries_retrieval
@@ -4886,7 +4887,7 @@ class TextDocumentLLMProcessor:
             if group is None:
                 raise ValueError('Group not found in regex string')
             
-            match = re.search(given_text.regex_string,found_cell_texts['text'])
+            match = safe_regex.search(given_text.regex_string,found_cell_texts['text'])
             if match is None:
                 raise ValueError('Group not found in regex string')
             sub_string = str(match.group(group))
@@ -4946,11 +4947,7 @@ class TextDocumentLLMProcessor:
     
     
     def __get_regex_group(self, original_string, regex_pattern, char_indexes):
-        # Compile the regex pattern
-        pattern = re.compile(regex_pattern)
-        
-        # Find the match in the original string
-        match = pattern.search(original_string)
+        match = safe_regex.search(regex_pattern, original_string)
         
         if not match:
             return None
